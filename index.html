@@ -2,7 +2,11 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0, user-scalable=no"
+    >
 
     <title>Troll Platformer</title>
 
@@ -11,11 +15,22 @@
             box-sizing: border-box;
         }
 
+        html,
         body {
             margin: 0;
-            background: black;
+            padding: 0;
+            width: 100%;
+            height: 100%;
             overflow: hidden;
+            background: #111;
             touch-action: none;
+            user-select: none;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
         #game {
@@ -23,51 +38,125 @@
             width: 100vw;
             height: 56.25vw;
             max-height: 100vh;
-            background: black;
+            touch-action: none;
         }
+
+        /* MOBILE CONTROLS */
 
         #controls {
             position: fixed;
-            bottom: 20px;
             left: 0;
-            width: 100%;
-            display: flex;
-            justify-content: space-between;
-            padding: 0 25px;
+            right: 0;
+            bottom: 18px;
+            height: 90px;
             z-index: 9999;
+
             pointer-events: none;
         }
 
         .control {
-            width: 75px;
-            height: 75px;
-            border: 3px solid white;
-            border-radius: 20px;
-            background: rgba(0, 0, 0, 0.6);
+            position: absolute;
+
+            width: 72px;
+            height: 72px;
+
+            border: 3px solid rgba(255, 255, 255, 0.8);
+            border-radius: 18px;
+
+            background: rgba(20, 20, 30, 0.65);
+
             color: white;
-            font-size: 35px;
+            font-size: 32px;
+            font-weight: bold;
+
+            display: flex;
+            justify-content: center;
+            align-items: center;
+
             pointer-events: auto;
             touch-action: none;
+
+            -webkit-tap-highlight-color: transparent;
         }
 
+        /* LEFT + RIGHT TOGETHER */
+
+        #left {
+            left: 20px;
+        }
+
+        #right {
+            left: 105px;
+        }
+
+        /* JUMP ALONE ON RIGHT */
+
         #jump {
-            position: absolute;
-            right: 120px;
+            right: 25px;
+        }
+
+        .control:active {
+            background: rgba(255, 255, 255, 0.35);
+            transform: scale(0.92);
+        }
+
+        /* Make buttons slightly smaller on very small screens */
+
+        @media (max-width: 400px) {
+            .control {
+                width: 64px;
+                height: 64px;
+                font-size: 28px;
+            }
+
+            #left {
+                left: 15px;
+            }
+
+            #right {
+                left: 90px;
+            }
+
+            #jump {
+                right: 15px;
+            }
         }
     </style>
 </head>
 
 <body>
 
-<canvas id="game"></canvas>
+    <canvas id="game"></canvas>
 
-<div id="controls">
-    <button class="control" id="left">←</button>
-    <button class="control" id="jump">↑</button>
-    <button class="control" id="right">→</button>
-</div>
+    <div id="controls">
 
-<script src="game.js"></script>
+        <button
+            class="control"
+            id="left"
+            aria-label="Move left"
+        >
+            ←
+        </button>
+
+        <button
+            class="control"
+            id="right"
+            aria-label="Move right"
+        >
+            →
+        </button>
+
+        <button
+            class="control"
+            id="jump"
+            aria-label="Jump"
+        >
+            ↑
+        </button>
+
+    </div>
+
+    <script src="game.js"></script>
 
 </body>
-</html>
+    </html>
