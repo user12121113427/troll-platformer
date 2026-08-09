@@ -5,195 +5,135 @@ canvas.width = 800;
 canvas.height = 450;
 
 const player = {
-    x: 70,
-    y: 330,
+    x: 100,
+    y: 335,
     width: 24,
     height: 45,
     speed: 4,
     velocityY: 0,
     jumping: false,
-    walking: false,
-    direction: 1,
     walkTime: 0
 };
 
 const gravity = 0.6;
 const jumpPower = -11;
 
-const keys = {};
+const keys = {
+    left: false,
+    right: false
+};
 
-let gameOver = false;
-let won = false;
-let cameraX = 0;
-
-// --------------------
+// -------------------------
 // KEYBOARD CONTROLS
-// --------------------
+// -------------------------
 
-document.addEventListener("keydown", (event) => {
-    keys[event.key] = true;
-
-    if (
-        event.key === " " ||
-        event.key === "ArrowUp" ||
-        event.key === "w"
-    ) {
-        event.preventDefault();
-
-        if (!player.jumping && !gameOver && !won) {
-            player.velocityY = jumpPower;
-            player.jumping = true;
-        }
+document.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowLeft" || e.key === "a") {
+        keys.left = true;
     }
 
-    if (event.key === "r" && gameOver) {
-        restart();
+    if (e.key === "ArrowRight" || e.key === "d") {
+        keys.right = true;
+    }
+
+    if (e.key === "ArrowUp" || e.key === "w" || e.key === " ") {
+        jump();
     }
 });
 
-document.addEventListener("keyup", (event) => {
-    keys[event.key] = false;
+document.addEventListener("keyup", (e) => {
+    if (e.key === "ArrowLeft" || e.key === "a") {
+        keys.left = false;
+    }
+
+    if (e.key === "ArrowRight" || e.key === "d") {
+        keys.right = false;
+    }
 });
 
-// --------------------
-// MOBILE CONTROLS
-// --------------------
+// -------------------------
+// MOBILE BUTTONS
+// -------------------------
 
-const controls = document.createElement("div");
+const leftButton = document.getElementById("left");
+const rightButton = document.getElementById("right");
+const jumpButton = document.getElementById("jump");
 
-controls.innerHTML = `
-    <button id="left">←</button>
-    <button id="jump">↑</button>
-    <button id="right">→</button>
-`;
+function holdButton(button, actionDown, actionUp) {
 
-controls.style.position = "fixed";
-controls.style.bottom = "15px";
-controls.style.left = "0";
-controls.style.width = "100%";
-controls.style.display = "flex";
-controls.style.justifyContent = "space-around";
-controls.style.zIndex = "1000";
-controls.style.pointerEvents = "none";
-
-document.body.appendChild(controls);
-
-const buttonStyle = `
-    width: 70px;
-    height: 70px;
-    border-radius: 20px;
-    border: 2px solid white;
-    background: rgba(0,0,0,0.45);
-    color: white;
-    font-size: 32px;
-    touch-action: none;
-`;
-
-document.getElementById("left").style.cssText = buttonStyle;
-document.getElementById("right").style.cssText = buttonStyle;
-document.getElementById("jump").style.cssText = buttonStyle;
-
-document.getElementById("left").style.pointerEvents = "auto";
-document.getElementById("right").style.pointerEvents = "auto";
-document.getElementById("jump").style.pointerEvents = "auto";
-
-function holdButton(button, key) {
     button.addEventListener("touchstart", (e) => {
         e.preventDefault();
-        keys[key] = true;
+        actionDown();
     });
 
     button.addEventListener("touchend", (e) => {
         e.preventDefault();
-        keys[key] = false;
+        actionUp();
     });
 
     button.addEventListener("touchcancel", () => {
-        keys[key] = false;
+        actionUp();
     });
+
+    // Also works with mouse
+    button.addEventListener("mousedown", actionDown);
+    button.addEventListener("mouseup", actionUp);
+    button.addEventListener("mouseleave", actionUp);
 }
 
-holdButton(document.getElementById("left"), "ArrowLeft");
-holdButton(document.getElementById("right"), "ArrowRight");
+holdButton(
+    leftButton,
+    () => keys.left = true,
+    () => keys.left = false
+);
 
-document.getElementById("jump").addEventListener("touchstart", (e) => {
+holdButton(
+    rightButton,
+    () => keys.right = true,
+    () => keys.right = false
+);
+
+jumpButton.addEventListener("touchstart", (e) => {
     e.preventDefault();
+    jump();
+});
 
-    if (!player.jumping && !gameOver && !won) {
+jumpButton.addEventListener("mousedown", () => {
+    jump();
+});
+
+// -------------------------
+// JUMP
+// -------------------------
+
+function jump() {
+
+    if (!player.jumping) {
         player.velocityY = jumpPower;
         player.jumping = true;
     }
-});
-
-// --------------------
-// LEVEL
-// --------------------
-
-const platforms = [
-    { x: 0, y: 390, width: 500, height: 60 },
-    { x: 580, y: 390, width: 300, height: 60 },
-    { x: 950, y: 340, width: 220, height: 30 },
-    { x: 1250, y: 390, width: 350, height: 60 },
-    { x: 1680, y: 320, width: 250, height: 30 },
-    { x: 2050, y: 390, width: 500, height: 60 }
-];
-
-const spikes = [
-    { x: 350, y: 370, width: 40, height: 20 },
-    { x: 430, y: 370, width: 40, height: 20 },
-    { x: 760, y: 370, width: 40, height: 20 },
-    { x: 1080, y: 320, width: 40, height: 20 },
-    { x: 1420, y: 370, width: 40, height: 20 },
-    { x: 1780, y: 300, width: 40, height: 20 }
-];
-
-const goal = {
-    x: 2400,
-    y: 310,
-    width: 40,
-    height: 80
-};
-
-// --------------------
-// COLLISION
-// --------------------
-
-function collision(a, b) {
-    return (
-        a.x < b.x + b.width &&
-        a.x + a.width > b.x &&
-        a.y < b.y + b.height &&
-        a.y + a.height > b.y
-    );
 }
 
-// --------------------
+// -------------------------
 // UPDATE
-// --------------------
+// -------------------------
 
 function update() {
 
-    if (gameOver || won) {
-        return;
-    }
+    let walking = false;
 
-    player.walking = false;
-
-    // Movement
-    if (keys["ArrowLeft"] || keys["a"]) {
+    if (keys.left) {
         player.x -= player.speed;
-        player.direction = -1;
-        player.walking = true;
+        walking = true;
     }
 
-    if (keys["ArrowRight"] || keys["d"]) {
+    if (keys.right) {
         player.x += player.speed;
-        player.direction = 1;
-        player.walking = true;
+        walking = true;
     }
 
-    // Animation
-    if (player.walking) {
+    // Walking animation
+    if (walking) {
         player.walkTime += 0.2;
     } else {
         player.walkTime = 0;
@@ -203,274 +143,160 @@ function update() {
     player.velocityY += gravity;
     player.y += player.velocityY;
 
-    player.jumping = true;
+    // Ground
+    const ground = 380;
 
-    // Platform collision
-    for (const platform of platforms) {
+    if (player.y + player.height >= ground) {
 
-        const playerBottom = player.y + player.height;
+        player.y = ground - player.height;
 
-        if (
-            player.x + player.width > platform.x &&
-            player.x < platform.x + platform.width &&
-            playerBottom >= platform.y &&
-            playerBottom <= platform.y + 20 &&
-            player.velocityY >= 0
-        ) {
-            player.y = platform.y - player.height;
-            player.velocityY = 0;
-            player.jumping = false;
-        }
+        player.velocityY = 0;
+
+        player.jumping = false;
     }
 
-    // Camera
-    cameraX = player.x - 150;
-
-    if (cameraX < 0) {
-        cameraX = 0;
+    // Keep player inside level
+    if (player.x < 0) {
+        player.x = 0;
     }
 
-    // Spikes
-    for (const spike of spikes) {
-        if (collision(player, spike)) {
-            gameOver = true;
-        }
-    }
-
-    // Falling
-    if (player.y > canvas.height + 100) {
-        gameOver = true;
-    }
-
-    // Goal
-    if (collision(player, goal)) {
-        won = true;
+    if (player.x > canvas.width - player.width) {
+        player.x = canvas.width - player.width;
     }
 }
 
-// --------------------
-// DRAW BACKGROUND
-// --------------------
-
-function drawBackground() {
-
-    const time = Date.now() / 3000;
-
-    const r = Math.floor(120 + Math.sin(time) * 80);
-    const g = Math.floor(100 + Math.sin(time + 2) * 80);
-    const b = Math.floor(180 + Math.sin(time + 4) * 70);
-
-    ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Background circles
-    for (let i = 0; i < 12; i++) {
-        const x = i * 100 - (cameraX * 0.2) % 100;
-        const y = 80 + Math.sin(time + i) * 40;
-
-        ctx.beginPath();
-        ctx.arc(x, y, 35, 0, Math.PI * 2);
-        ctx.fillStyle = "rgba(255,255,255,0.12)";
-        ctx.fill();
-    }
-}
-
-// --------------------
-// DRAW PLATFORMS
-// --------------------
-
-function drawPlatforms() {
-
-    for (const platform of platforms) {
-
-        const x = platform.x - cameraX;
-
-        ctx.fillStyle = "#222";
-        ctx.fillRect(
-            x,
-            platform.y,
-            platform.width,
-            platform.height
-        );
-
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(
-            x,
-            platform.y,
-            platform.width,
-            5
-        );
-    }
-}
-
-// --------------------
-// DRAW SPIKES
-// --------------------
-
-function drawSpikes() {
-
-    for (const spike of spikes) {
-
-        const x = spike.x - cameraX;
-
-        ctx.fillStyle = "#ff1744";
-
-        ctx.beginPath();
-
-        ctx.moveTo(x, spike.y + spike.height);
-        ctx.lineTo(x + spike.width / 2, spike.y);
-        ctx.lineTo(x + spike.width, spike.y + spike.height);
-
-        ctx.closePath();
-        ctx.fill();
-    }
-}
-
-// --------------------
+// -------------------------
 // DRAW STICKMAN
-// --------------------
+// -------------------------
 
-function drawPlayer() {
+function drawStickman() {
 
-    const x = player.x - cameraX;
+    const x = player.x + 12;
     const y = player.y;
 
-    ctx.save();
+    const walking =
+        keys.left || keys.right;
 
-    ctx.strokeStyle = "#111";
-    ctx.fillStyle = "#111";
+    const legMovement = walking
+        ? Math.sin(player.walkTime) * 9
+        : 0;
+
+    const armMovement = walking
+        ? Math.sin(player.walkTime) * 7
+        : 0;
+
+    ctx.strokeStyle = "white";
     ctx.lineWidth = 5;
     ctx.lineCap = "round";
 
     // Head
     ctx.beginPath();
-    ctx.arc(x + 12, y + 8, 8, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.arc(x, y + 8, 9, 0, Math.PI * 2);
+    ctx.stroke();
 
     // Body
     ctx.beginPath();
-    ctx.moveTo(x + 12, y + 16);
-    ctx.lineTo(x + 12, y + 32);
+    ctx.moveTo(x, y + 17);
+    ctx.lineTo(x, y + 32);
     ctx.stroke();
 
-    // Arms
-    const armMove = player.walking
-        ? Math.sin(player.walkTime) * 7
-        : 0;
-
+    // Left arm
     ctx.beginPath();
-    ctx.moveTo(x + 12, y + 20);
-    ctx.lineTo(x - 2, y + 28 + armMove);
-    ctx.moveTo(x + 12, y + 20);
-    ctx.lineTo(x + 26, y + 28 - armMove);
+    ctx.moveTo(x, y + 20);
+    ctx.lineTo(
+        x - 14,
+        y + 28 + armMovement
+    );
     ctx.stroke();
 
-    // Legs
-    const legMove = player.walking
-        ? Math.sin(player.walkTime) * 8
-        : 0;
-
+    // Right arm
     ctx.beginPath();
-    ctx.moveTo(x + 12, y + 32);
-    ctx.lineTo(x + 3, y + 45 + legMove);
-    ctx.moveTo(x + 12, y + 32);
-    ctx.lineTo(x + 21, y + 45 - legMove);
+    ctx.moveTo(x, y + 20);
+    ctx.lineTo(
+        x + 14,
+        y + 28 - armMovement
+    );
     ctx.stroke();
 
-    ctx.restore();
+    // Left leg
+    ctx.beginPath();
+    ctx.moveTo(x, y + 32);
+    ctx.lineTo(
+        x - 9 + legMovement,
+        y + 45
+    );
+    ctx.stroke();
+
+    // Right leg
+    ctx.beginPath();
+    ctx.moveTo(x, y + 32);
+    ctx.lineTo(
+        x + 9 - legMovement,
+        y + 45
+    );
+    ctx.stroke();
 }
 
-// --------------------
-// DRAW GOAL
-// --------------------
+// -------------------------
+// DRAW
+// -------------------------
 
-function drawGoal() {
+function draw() {
 
-    const x = goal.x - cameraX;
+    // Colorful background
+    const time = Date.now() / 1500;
 
-    ctx.fillStyle = "#111";
-    ctx.fillRect(x, goal.y, 6, goal.height);
+    const red =
+        Math.floor(130 + Math.sin(time) * 80);
 
-    ctx.fillStyle = "#00ff88";
+    const blue =
+        Math.floor(170 + Math.sin(time + 2) * 70);
 
-    ctx.beginPath();
-    ctx.moveTo(x + 6, goal.y);
-    ctx.lineTo(x + 40, goal.y + 15);
-    ctx.lineTo(x + 6, goal.y + 30);
-    ctx.closePath();
-    ctx.fill();
-}
+    const green =
+        Math.floor(100 + Math.sin(time + 4) * 60);
 
-// --------------------
-// UI
-// --------------------
+    ctx.fillStyle =
+        `rgb(${red}, ${green}, ${blue})`;
 
-function drawUI() {
+    ctx.fillRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
 
+    // Ground
+    ctx.fillStyle = "#171717";
+
+    ctx.fillRect(
+        0,
+        380,
+        canvas.width,
+        70
+    );
+
+    // Ground line
     ctx.fillStyle = "white";
-    ctx.font = "20px Arial";
 
-    ctx.fillText("TROLL PLATFORMER", 20, 30);
+    ctx.fillRect(
+        0,
+        380,
+        canvas.width,
+        4
+    );
 
-    if (gameOver) {
-
-        ctx.fillStyle = "rgba(0,0,0,0.7)";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        ctx.fillStyle = "white";
-        ctx.font = "45px Arial";
-        ctx.fillText("YOU DIED", 285, 200);
-
-        ctx.font = "20px Arial";
-        ctx.fillText("Tap R or press R to restart", 270, 240);
-    }
-
-    if (won) {
-
-        ctx.fillStyle = "rgba(0,0,0,0.7)";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        ctx.fillStyle = "#00ff88";
-        ctx.font = "45px Arial";
-        ctx.fillText("LEVEL COMPLETE!", 235, 200);
-
-        ctx.fillStyle = "white";
-        ctx.font = "20px Arial";
-        ctx.fillText("You survived the troll level.", 280, 240);
-    }
+    // Stickman
+    drawStickman();
 }
 
-// --------------------
-// RESTART
-// --------------------
-
-function restart() {
-
-    player.x = 70;
-    player.y = 330;
-    player.velocityY = 0;
-    player.jumping = false;
-
-    cameraX = 0;
-
-    gameOver = false;
-    won = false;
-}
-
-// --------------------
+// -------------------------
 // GAME LOOP
-// --------------------
+// -------------------------
 
 function gameLoop() {
 
     update();
-
-    drawBackground();
-    drawPlatforms();
-    drawSpikes();
-    drawGoal();
-    drawPlayer();
-    drawUI();
+    draw();
 
     requestAnimationFrame(gameLoop);
 }
