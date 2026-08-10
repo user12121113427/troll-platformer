@@ -29,12 +29,24 @@ const keys = {
 
 let cameraX = 0;
 let gameOver = false;
+let won = false;
+
+let score = 0;
+let bestScore = 0;
 
 // =========================
-// KEYBOARD
+// KEYBOARD CONTROLS
 // =========================
 
 document.addEventListener("keydown", (e) => {
+
+    if (gameOver) {
+        if (e.key === "r" || e.key === "Enter" || e.key === " ") {
+            restart();
+        }
+
+        return;
+    }
 
     if (e.key === "ArrowLeft" || e.key === "a") {
         keys.left = true;
@@ -49,11 +61,8 @@ document.addEventListener("keydown", (e) => {
         e.key === "w" ||
         e.key === " "
     ) {
+        e.preventDefault();
         jump();
-    }
-
-    if (e.key.toLowerCase() === "r" && gameOver) {
-        restart();
     }
 });
 
@@ -109,10 +118,41 @@ holdButton(
 
 jumpButton.addEventListener("touchstart", (e) => {
     e.preventDefault();
-    jump();
+
+    if (gameOver) {
+        restart();
+    } else {
+        jump();
+    }
 });
 
-jumpButton.addEventListener("mousedown", jump);
+jumpButton.addEventListener("mousedown", () => {
+
+    if (gameOver) {
+        restart();
+    } else {
+        jump();
+    }
+});
+
+// =========================
+// TAP SCREEN TO RESPAWN
+// =========================
+
+canvas.addEventListener("touchstart", (e) => {
+
+    if (gameOver) {
+        e.preventDefault();
+        restart();
+    }
+});
+
+canvas.addEventListener("click", () => {
+
+    if (gameOver) {
+        restart();
+    }
+});
 
 // =========================
 // JUMP
@@ -120,7 +160,7 @@ jumpButton.addEventListener("mousedown", jump);
 
 function jump() {
 
-    if (!player.jumping && !gameOver) {
+    if (!player.jumping && !gameOver && !won) {
 
         player.velocityY = jumpPower;
         player.jumping = true;
@@ -133,7 +173,6 @@ function jump() {
 
 const platforms = [
 
-    // Starting platform
     {
         x: 0,
         y: 380,
@@ -141,7 +180,6 @@ const platforms = [
         height: 70
     },
 
-    // Platform after first gap
     {
         x: 550,
         y: 380,
@@ -149,7 +187,6 @@ const platforms = [
         height: 70
     },
 
-    // Raised platform
     {
         x: 950,
         y: 320,
@@ -157,7 +194,6 @@ const platforms = [
         height: 30
     },
 
-    // Long platform
     {
         x: 1250,
         y: 380,
@@ -165,7 +201,6 @@ const platforms = [
         height: 70
     },
 
-    // Small platform
     {
         x: 1750,
         y: 330,
@@ -173,7 +208,6 @@ const platforms = [
         height: 30
     },
 
-    // Final platform
     {
         x: 2100,
         y: 380,
@@ -262,13 +296,12 @@ function collision(a, b) {
 
 function update() {
 
-    if (gameOver) {
+    if (gameOver || won) {
         return;
     }
 
     let walking = false;
 
-    // Movement
     if (keys.left) {
 
         player.x -= player.speed;
@@ -281,9 +314,10 @@ function update() {
         walking = true;
     }
 
-    // Walking animation
     if (walking) {
         player.walkTime += 0.2;
+    } else {
+        player.walkTime = 0;
     }
 
     // Gravity
@@ -315,26 +349,22 @@ function update() {
         }
     }
 
-    // Spike collision
+    // Spikes
     for (const spike of spikes) {
 
         if (collision(player, spike)) {
-
             die();
         }
     }
 
-    // Fall into gaps
+    // Fall
     if (player.y > 500) {
-
         die();
     }
 
     // Goal
     if (collision(player, goal)) {
-
-        alert("LEVEL COMPLETE!");
-        restart();
+        won = true;
     }
 
     // Camera
@@ -342,6 +372,16 @@ function update() {
 
     if (cameraX < 0) {
         cameraX = 0;
+    }
+
+    // Score
+    score = Math.max(
+        0,
+        Math.floor(player.x / 10)
+    );
+
+    if (score > bestScore) {
+        bestScore = score;
     }
 }
 
@@ -352,6 +392,10 @@ function update() {
 function die() {
 
     gameOver = true;
+
+    if (score > bestScore) {
+        bestScore = score;
+    }
 }
 
 // =========================
@@ -366,30 +410,48 @@ function restart() {
     player.velocityY = 0;
     player.jumping = false;
 
+    player.walkTime = 0;
+
     cameraX = 0;
 
+    score = 0;
+
     gameOver = false;
+    won = false;
 }
 
 // =========================
-// BACKGROUND
+// GOTH BACKGROUND
 // =========================
 
 function drawBackground() {
 
-    const time = Date.now() / 1500;
+    const time = Date.now() / 2000;
 
-    const r =
-        Math.floor(120 + Math.sin(time) * 80);
+    // Dark animated gradient
+    const gradient = ctx.createLinearGradient(
+        0,
+        0,
+        0,
+        canvas.height
+    );
 
-    const g =
-        Math.floor(100 + Math.sin(time + 2) * 70);
+    gradient.addColorStop(
+        0,
+        "#090014"
+    );
 
-    const b =
-        Math.floor(180 + Math.sin(time + 4) * 70);
+    gradient.addColorStop(
+        0.5,
+        "#1a0828"
+    );
 
-    ctx.fillStyle =
-        `rgb(${r}, ${g}, ${b})`;
+    gradient.addColorStop(
+        1,
+        "#050008"
+    );
+
+    ctx.fillStyle = gradient;
 
     ctx.fillRect(
         0,
@@ -398,31 +460,130 @@ function drawBackground() {
         canvas.height
     );
 
-    // Decorative circles
-    for (let i = 0; i < 10; i++) {
+    // Moon
+    const moonX = 650;
+    const moonY = 95;
+
+    ctx.fillStyle = "#e8d9ff";
+
+    ctx.beginPath();
+
+    ctx.arc(
+        moonX,
+        moonY,
+        42,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fill();
+
+    // Moon shadow
+    ctx.fillStyle = "#12051c";
+
+    ctx.beginPath();
+
+    ctx.arc(
+        moonX + 15,
+        moonY - 10,
+        40,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fill();
+
+    // Stars
+    for (let i = 0; i < 45; i++) {
 
         const x =
-            i * 120 -
-            (cameraX * 0.2 % 120);
+            (i * 137) % canvas.width;
 
         const y =
-            80 +
-            Math.sin(time + i) * 35;
+            20 + ((i * 71) % 220);
+
+        const twinkle =
+            0.5 +
+            Math.sin(time * 3 + i) * 0.5;
 
         ctx.fillStyle =
-            "rgba(255,255,255,0.12)";
+            `rgba(255,255,255,${0.3 + twinkle * 0.5})`;
 
-        ctx.beginPath();
-
-        ctx.arc(
+        ctx.fillRect(
             x,
             y,
-            35,
-            0,
-            Math.PI * 2
+            2,
+            2
+        );
+    }
+
+    // Distant gothic buildings
+    ctx.fillStyle = "#0a0610";
+
+    for (let i = 0; i < 12; i++) {
+
+        const x =
+            i * 80 -
+            ((cameraX * 0.15) % 80);
+
+        const height =
+            70 + ((i * 37) % 90);
+
+        ctx.fillRect(
+            x,
+            380 - height,
+            65,
+            height
         );
 
+        // Spire
+        ctx.beginPath();
+
+        ctx.moveTo(
+            x + 32,
+            380 - height - 45
+        );
+
+        ctx.lineTo(
+            x + 10,
+            380 - height
+        );
+
+        ctx.lineTo(
+            x + 55,
+            380 - height
+        );
+
+        ctx.closePath();
+
         ctx.fill();
+    }
+
+    // Gothic crosses in the distance
+    for (let i = 0; i < 5; i++) {
+
+        const x =
+            i * 190 -
+            ((cameraX * 0.12) % 190);
+
+        const y = 260;
+
+        ctx.fillStyle =
+            "rgba(90,60,120,0.35)";
+
+        ctx.fillRect(
+            x,
+            y,
+            7,
+            45
+        );
+
+        ctx.fillRect(
+            x - 12,
+            y + 10,
+            31,
+            7
+        );
     }
 }
 
@@ -437,7 +598,8 @@ function drawPlatforms() {
         const x =
             platform.x - cameraX;
 
-        ctx.fillStyle = "#181818";
+        // Main platform
+        ctx.fillStyle = "#111";
 
         ctx.fillRect(
             x,
@@ -446,7 +608,8 @@ function drawPlatforms() {
             platform.height
         );
 
-        ctx.fillStyle = "#ffffff";
+        // Neon top
+        ctx.fillStyle = "#b44cff";
 
         ctx.fillRect(
             x,
@@ -454,6 +617,37 @@ function drawPlatforms() {
             platform.width,
             4
         );
+
+        // Small gothic decorations
+        ctx.fillStyle = "#30203b";
+
+        for (
+            let decorationX = x + 25;
+            decorationX < x + platform.width - 10;
+            decorationX += 50
+        ) {
+
+            ctx.beginPath();
+
+            ctx.moveTo(
+                decorationX,
+                platform.y + 15
+            );
+
+            ctx.lineTo(
+                decorationX + 8,
+                platform.y + 30
+            );
+
+            ctx.lineTo(
+                decorationX + 16,
+                platform.y + 15
+            );
+
+            ctx.closePath();
+
+            ctx.fill();
+        }
     }
 }
 
@@ -468,7 +662,7 @@ function drawSpikes() {
         const x =
             spike.x - cameraX;
 
-        ctx.fillStyle = "#ff1744";
+        ctx.fillStyle = "#ff2d6f";
 
         ctx.beginPath();
 
@@ -490,6 +684,14 @@ function drawSpikes() {
         ctx.closePath();
 
         ctx.fill();
+
+        // Spike glow
+        ctx.strokeStyle =
+            "rgba(255,45,111,0.4)";
+
+        ctx.lineWidth = 3;
+
+        ctx.stroke();
     }
 }
 
@@ -502,7 +704,7 @@ function drawGoal() {
     const x =
         goal.x - cameraX;
 
-    ctx.fillStyle = "#222";
+    ctx.fillStyle = "#171018";
 
     ctx.fillRect(
         x,
@@ -511,7 +713,7 @@ function drawGoal() {
         goal.height
     );
 
-    ctx.fillStyle = "#00ff88";
+    ctx.fillStyle = "#d75cff";
 
     ctx.beginPath();
 
@@ -547,13 +749,24 @@ function drawStickman() {
     const y =
         player.y;
 
+    const walking =
+        keys.left || keys.right;
+
     const legMovement =
-        Math.sin(player.walkTime) * 9;
+        walking
+            ? Math.sin(player.walkTime) * 9
+            : 0;
 
     const armMovement =
-        Math.sin(player.walkTime) * 7;
+        walking
+            ? Math.sin(player.walkTime) * 7
+            : 0;
 
-    ctx.strokeStyle = "white";
+    // Glow
+    ctx.shadowColor = "#d75cff";
+    ctx.shadowBlur = 10;
+
+    ctx.strokeStyle = "#ffffff";
 
     ctx.lineWidth = 5;
 
@@ -636,10 +849,44 @@ function drawStickman() {
     );
 
     ctx.stroke();
+
+    ctx.shadowBlur = 0;
 }
 
 // =========================
-// GAME OVER SCREEN
+// SCORE
+// =========================
+
+function drawScore() {
+
+    ctx.textAlign = "left";
+
+    ctx.fillStyle = "#ffffff";
+
+    ctx.font =
+        "bold 18px Arial";
+
+    ctx.fillText(
+        "SCORE  " + score,
+        20,
+        30
+    );
+
+    ctx.fillStyle =
+        "#c98cff";
+
+    ctx.font =
+        "14px Arial";
+
+    ctx.fillText(
+        "BEST  " + bestScore,
+        20,
+        50
+    );
+}
+
+// =========================
+// DEATH SCREEN
 // =========================
 
 function drawGameOver() {
@@ -649,7 +896,7 @@ function drawGameOver() {
     }
 
     ctx.fillStyle =
-        "rgba(0,0,0,0.7)";
+        "rgba(5,0,10,0.82)";
 
     ctx.fillRect(
         0,
@@ -658,30 +905,139 @@ function drawGameOver() {
         canvas.height
     );
 
-    ctx.fillStyle = "white";
+    ctx.textAlign = "center";
+
+    ctx.shadowColor = "#ff2d6f";
+    ctx.shadowBlur = 15;
+
+    ctx.fillStyle = "#ff4f8b";
 
     ctx.font =
-        "bold 48px Arial";
-
-    ctx.textAlign = "center";
+        "bold 52px Arial";
 
     ctx.fillText(
         "YOU DIED",
         canvas.width / 2,
-        190
+        180
+    );
+
+    ctx.shadowBlur = 0;
+
+    ctx.fillStyle = "white";
+
+    ctx.font =
+        "bold 22px Arial";
+
+    ctx.fillText(
+        "SCORE  " + score,
+        canvas.width / 2,
+        225
+    );
+
+    ctx.fillStyle =
+        "#c98cff";
+
+    ctx.font =
+        "18px Arial";
+
+    ctx.fillText(
+        "TAP ANYWHERE TO REVIVE",
+        canvas.width / 2,
+        270
     );
 
     ctx.font =
-        "20px Arial";
+        "14px Arial";
+
+    ctx.fillStyle =
+        "rgba(255,255,255,0.6)";
 
     ctx.fillText(
-        "Tap the jump button to restart",
+        "or press R",
         canvas.width / 2,
-        235
+        300
     );
 
     ctx.textAlign = "left";
 }
+
+// =========================
+// WIN SCREEN
+// =========================
+
+function drawWin() {
+
+    if (!won) {
+        return;
+    }
+
+    ctx.fillStyle =
+        "rgba(5,0,10,0.8)";
+
+    ctx.fillRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+    ctx.textAlign = "center";
+
+    ctx.fillStyle = "#d75cff";
+
+    ctx.font =
+        "bold 44px Arial";
+
+    ctx.fillText(
+        "LEVEL COMPLETE",
+        canvas.width / 2,
+        190
+    );
+
+    ctx.fillStyle = "white";
+
+    ctx.font =
+        "22px Arial";
+
+    ctx.fillText(
+        "SCORE  " + score,
+        canvas.width / 2,
+        235
+    );
+
+    ctx.font =
+        "17px Arial";
+
+    ctx.fillStyle =
+        "#c98cff";
+
+    ctx.fillText(
+        "TAP TO PLAY AGAIN",
+        canvas.width / 2,
+        275
+    );
+
+    ctx.textAlign = "left";
+}
+
+// =========================
+// TAP AFTER WIN
+// =========================
+
+canvas.addEventListener("touchstart", (e) => {
+
+    if (gameOver || won) {
+        e.preventDefault();
+        restart();
+    }
+});
+
+canvas.addEventListener("click", () => {
+
+    if (gameOver || won) {
+        restart();
+    }
+});
 
 // =========================
 // DRAW
@@ -699,7 +1055,11 @@ function draw() {
 
     drawStickman();
 
+    drawScore();
+
     drawGameOver();
+
+    drawWin();
 }
 
 // =========================
