@@ -497,3 +497,4 @@ function gameLoop() {
 // ==============================
 
 gameLoop();
+alert("GAME.JS IS RUNNING");
