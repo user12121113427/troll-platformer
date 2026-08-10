@@ -7,29 +7,34 @@ canvas.height = 500;
 const W = canvas.width;
 const H = canvas.height;
 
-// =========================
+// ======================================================
 // GAME STATE
-// =========================
+// ======================================================
 
-let round = 1;
+let state = "menu"; // menu, playing, dead, complete
+let level = 1;
 let score = 0;
 let deaths = 0;
-
-let gameOver = false;
-let roundComplete = false;
-
 let cameraX = 0;
+let animationTime = 0;
+
+let levelLength = 2600;
+let goalX = 2400;
 
 const gravity = 0.65;
 const jumpPower = -12;
 
-// =========================
+const keys = {};
+
+
+// ======================================================
 // PLAYER
-// =========================
+// ======================================================
 
 const player = {
     x: 80,
     y: 350,
+
     width: 26,
     height: 55,
 
@@ -43,131 +48,176 @@ const player = {
     walkTime: 0
 };
 
-// =========================
-// CONTROLS
-// =========================
 
-const keys = {};
+// ======================================================
+// LEVEL DATA
+// ======================================================
 
-document.addEventListener("keydown", e => {
+let platforms = [];
+let traps = [];
+let decorations = [];
+
+
+// ======================================================
+// KEYBOARD
+// ======================================================
+
+document.addEventListener("keydown", function(e) {
+
     keys[e.key.toLowerCase()] = true;
 
     if (
         e.key === "ArrowUp" ||
-        e.key === " " ||
-        e.key.toLowerCase() === "w"
+        e.key === " "
     ) {
         e.preventDefault();
     }
+
 });
 
-document.addEventListener("keyup", e => {
+document.addEventListener("keyup", function(e) {
+
     keys[e.key.toLowerCase()] = false;
+
 });
 
-// =========================
+
+// ======================================================
 // MOBILE BUTTONS
-// =========================
+// ======================================================
 
 function setupButton(id, key) {
+
     const button = document.getElementById(id);
 
     if (!button) return;
 
-    const press = e => {
+    function press(e) {
+
         e.preventDefault();
 
-        if (gameOver) {
-            restartGame();
+        if (state === "menu") {
+            startGame();
             return;
         }
 
-        if (roundComplete) {
-            nextRound();
+        if (state === "dead") {
+            restartLevel();
+            return;
+        }
+
+        if (state === "complete") {
+            nextLevel();
             return;
         }
 
         keys[key] = true;
-    };
+    }
 
-    const release = e => {
+    function release(e) {
+
         e.preventDefault();
         keys[key] = false;
-    };
+    }
 
-    button.addEventListener("touchstart", press, {
-        passive: false
-    });
+    button.addEventListener(
+        "touchstart",
+        press,
+        { passive: false }
+    );
 
-    button.addEventListener("touchend", release, {
-        passive: false
-    });
+    button.addEventListener(
+        "touchend",
+        release,
+        { passive: false }
+    );
 
-    button.addEventListener("mousedown", press);
-    button.addEventListener("mouseup", release);
-    button.addEventListener("mouseleave", release);
+    button.addEventListener(
+        "mousedown",
+        press
+    );
+
+    button.addEventListener(
+        "mouseup",
+        release
+    );
+
+    button.addEventListener(
+        "mouseleave",
+        release
+    );
 }
 
 setupButton("left", "arrowleft");
 setupButton("right", "arrowright");
 setupButton("jump", "arrowup");
 
-// =========================
-// CREATE LEVEL
-// =========================
 
-let platforms = [];
-let traps = [];
-let goalX = 0;
+// ======================================================
+// SCREEN TAP
+// ======================================================
 
-function createLevel() {
+canvas.addEventListener("click", function() {
 
-    platforms = [];
-    traps = [];
+    if (state === "menu") {
 
-    const length = 2600 + round * 600;
+        startGame();
 
-    // Main floor
-    platforms.push({
-        x: 0,
-        y: 440,
-        width: length,
-        height: 60
-    });
+    } else if (state === "dead") {
 
-    // Floating platforms
-    for (let x = 450; x < length - 300; x += 400) {
+        restartLevel();
 
-        const height = 340 - Math.random() * 100;
+    } else if (state === "complete") {
 
-        platforms.push({
-            x: x,
-            y: height,
-            width: 150,
-            height: 25
-        });
+        nextLevel();
+
     }
 
-    // Troll traps
-    const trapCount = 5 + round * 2;
+});
 
-    for (let i = 0; i < trapCount; i++) {
+canvas.addEventListener(
+    "touchstart",
+    function(e) {
 
-        traps.push({
-            x: 350 + i * 350 + Math.random() * 120,
-            y: 420,
-            width: 45,
-            height: 20,
-            active: true
-        });
-    }
+        if (state === "menu") {
 
-    goalX = length - 180;
+            startGame();
+
+        } else if (state === "dead") {
+
+            restartLevel();
+
+        } else if (state === "complete") {
+
+            nextLevel();
+
+        }
+
+    },
+    { passive: true }
+);
+
+
+// ======================================================
+// START GAME
+// ======================================================
+
+function startGame() {
+
+    level = 1;
+    score = 0;
+    deaths = 0;
+
+    state = "playing";
+
+    createLevel();
+    resetPlayer();
 }
 
-// =========================
+
+// ======================================================
 // RESET PLAYER
-// =========================
+// ======================================================
 
 function resetPlayer() {
 
@@ -175,259 +225,421 @@ function resetPlayer() {
     player.y = 350;
 
     player.velocityY = 0;
+
     player.jumping = false;
+    player.walking = false;
+
+    player.direction = 1;
+    player.walkTime = 0;
 
     cameraX = 0;
 }
 
-// =========================
-// COLLISION
-// =========================
 
-function touching(a, b) {
+// ======================================================
+// LEVEL CREATION
+// ======================================================
 
-    return (
-        a.x < b.x + b.width &&
-        a.x + a.width > b.x &&
-        a.y < b.y + b.height &&
-        a.y + a.height > b.y
-    );
-}
+function createLevel() {
 
-// =========================
-// PLAYER DEATH
-// =========================
+    platforms = [];
+    traps = [];
+    decorations = [];
 
-function die() {
+    levelLength =
+        2500 +
+        level * 600;
 
-    if (gameOver) return;
+    goalX =
+        levelLength - 180;
 
-    deaths++;
+    // Main floor pieces
+    let x = 0;
 
-    gameOver = true;
-}
+    while (x < levelLength) {
 
-// =========================
-// ROUND COMPLETE
-// =========================
+        const width =
+            Math.max(
+                180,
+                330 - level * 12
+            );
 
-function completeRound() {
+        platforms.push({
+            x: x,
+            y: 440,
+            width: width,
+            height: 60,
+            type: "normal"
+        });
 
-    if (roundComplete) return;
+        x += width;
 
-    roundComplete = true;
+        // Bigger gaps at higher levels
+        const gap =
+            50 +
+            Math.random() *
+            (50 + level * 10);
 
-    score += 100 * round;
-}
-
-// =========================
-// NEXT ROUND
-// =========================
-
-function nextRound() {
-
-    round++;
-
-    roundComplete = false;
-    gameOver = false;
-
-    resetPlayer();
-    createLevel();
-}
-
-// =========================
-// RESTART
-// =========================
-
-function restartGame() {
-
-    round = 1;
-    score = 0;
-    deaths = 0;
-
-    gameOver = false;
-    roundComplete = false;
-
-    resetPlayer();
-    createLevel();
-}
-
-// =========================
-// UPDATE
-// =========================
-
-function update() {
-
-    if (gameOver || roundComplete) {
-        return;
+        x += gap;
     }
 
-    player.walking = false;
 
-    // LEFT
-    if (keys["arrowleft"] || keys["a"]) {
+    // Floating platforms appear from level 2
+    if (level >= 2) {
 
-        player.x -= player.speed;
-
-        player.direction = -1;
-        player.walking = true;
-    }
-
-    // RIGHT
-    if (keys["arrowright"] || keys["d"]) {
-
-        player.x += player.speed;
-
-        player.direction = 1;
-        player.walking = true;
-    }
-
-    // JUMP
-    if (
-        (keys["arrowup"] ||
-            keys["w"] ||
-            keys[" "]) &&
-        !player.jumping
-    ) {
-
-        player.velocityY = jumpPower;
-        player.jumping = true;
-    }
-
-    // Gravity
-    player.velocityY += gravity;
-    player.y += player.velocityY;
-
-    // Platform collision
-    let landed = false;
-
-    for (const platform of platforms) {
-
-        const playerBottom =
-            player.y + player.height;
-
-        const previousBottom =
-            playerBottom - player.velocityY;
-
-        if (
-            player.x + player.width > platform.x &&
-            player.x < platform.x + platform.width &&
-            playerBottom >= platform.y &&
-            previousBottom <= platform.y &&
-            player.velocityY >= 0
+        for (
+            let i = 0;
+            i < 5 + level;
+            i++
         ) {
 
-            player.y =
-                platform.y - player.height;
+            platforms.push({
 
-            player.velocityY = 0;
+                x:
+                    400 +
+                    i * 420,
 
-            landed = true;
+                y:
+                    320 -
+                    Math.random() * 100,
+
+                width:
+                    130 +
+                    Math.random() * 70,
+
+                height: 22,
+
+                type: "floating"
+            });
         }
     }
 
-    player.jumping = !landed;
 
-    // Trap collision
-    for (const trap of traps) {
+    // Traps
+    const trapCount =
+        4 + level * 2;
 
-        if (!trap.active) continue;
+    for (
+        let i = 0;
+        i < trapCount;
+        i++
+    ) {
 
-        const hitbox = {
-            x: trap.x,
-            y: trap.y - trap.height,
-            width: trap.width,
-            height: trap.height
-        };
+        traps.push({
 
-        if (touching(player, hitbox)) {
+            x:
+                300 +
+                i * 400 +
+                Math.random() * 150,
 
-            die();
+            y: 440,
+
+            width: 45,
+
+            height: 25,
+
+            type:
+                getTrapType(),
+
+            active: true
+        });
+    }
+
+
+    // Special hazards
+    if (level >= 3) {
+
+        for (
+            let i = 0;
+            i < level - 2;
+            i++
+        ) {
+
+            traps.push({
+
+                x:
+                    600 +
+                    i * 600,
+
+                y:
+                    300,
+
+                width: 30,
+
+                height: 140,
+
+                type: "falling",
+
+                active: true,
+
+                speed:
+                    2 + level * 0.2
+            });
         }
     }
 
-    // Falling
-    if (player.y > H + 100) {
-        die();
+
+    if (level >= 4) {
+
+        for (
+            let i = 0;
+            i < level - 3;
+            i++
+        ) {
+
+            platforms.push({
+
+                x:
+                    800 +
+                    i * 650,
+
+                y: 440,
+
+                width: 180,
+
+                height: 60,
+
+                type: "disappearing",
+
+                visible: true,
+
+                timer: 0
+            });
+        }
     }
 
-    // Prevent going backwards too far
-    if (player.x < 0) {
-        player.x = 0;
-    }
 
-    // Camera
-    cameraX = player.x - 180;
+    createDecorations();
+}
 
-    if (cameraX < 0) {
-        cameraX = 0;
-    }
 
-    // Walking animation
-    if (player.walking) {
-        player.walkTime += 0.2;
-    }
+// ======================================================
+// TRAP TYPES
+// ======================================================
 
-    // Goal
-    if (player.x >= goalX) {
-        completeRound();
+function getTrapType() {
+
+    const types = [
+        "spikes"
+    ];
+
+    if (level >= 2)
+        types.push("double");
+
+    if (level >= 3)
+        types.push("moving");
+
+    if (level >= 5)
+        types.push("troll");
+
+    return types[
+        Math.floor(
+            Math.random() * types.length
+        )
+    ];
+}
+
+
+// ======================================================
+// DECORATIONS
+// ======================================================
+
+function createDecorations() {
+
+    for (let i = 0; i < 80; i++) {
+
+        decorations.push({
+
+            x:
+                Math.random() *
+                levelLength,
+
+            y:
+                50 +
+                Math.random() * 280,
+
+            size:
+                8 +
+                Math.random() * 15,
+
+            type:
+                Math.floor(
+                    Math.random() * 4
+                )
+        });
     }
 }
 
-// =========================
-// DRAW BACKGROUND
-// =========================
+
+// ======================================================
+// LEVEL THEMES
+// ======================================================
+
+function getTheme() {
+
+    const themes = [
+
+        {
+            name: "NEON CITY",
+            top: "#10001f",
+            middle: "#300044",
+            bottom: "#08000e",
+            neon: "#d946ef",
+            secondary: "#7c3aed"
+        },
+
+        {
+            name: "MOONLIT GRAVEYARD",
+            top: "#020617",
+            middle: "#111827",
+            bottom: "#02040b",
+            neon: "#38bdf8",
+            secondary: "#6366f1"
+        },
+
+        {
+            name: "HELLSCAPE",
+            top: "#250006",
+            middle: "#5c0010",
+            bottom: "#120003",
+            neon: "#ff1744",
+            secondary: "#ff6d00"
+        },
+
+        {
+            name: "TOXIC LAB",
+            top: "#00140d",
+            middle: "#003d28",
+            bottom: "#000a06",
+            neon: "#00ff9d",
+            secondary: "#84ff00"
+        },
+
+        {
+            name: "GLITCH WORLD",
+            top: "#170018",
+            middle: "#45005a",
+            bottom: "#08000d",
+            neon: "#ff4fd8",
+            secondary: "#00e5ff"
+        },
+
+        {
+            name: "VOID",
+            top: "#030303",
+            middle: "#120018",
+            bottom: "#000000",
+            neon: "#ffffff",
+            secondary: "#9d4edd"
+        }
+    ];
+
+    return themes[
+        (level - 1) % themes.length
+    ];
+}
+
+
+// ======================================================
+// BACKGROUND
+// ======================================================
 
 function drawBackground() {
 
-    // Gradient sky
-    const gradient = ctx.createLinearGradient(
+    const theme = getTheme();
+
+    const gradient =
+        ctx.createLinearGradient(
+            0,
+            0,
+            0,
+            H
+        );
+
+    gradient.addColorStop(
         0,
-        0,
-        0,
-        H
+        theme.top
     );
 
-    gradient.addColorStop(0, "#090014");
-    gradient.addColorStop(0.5, "#21002f");
-    gradient.addColorStop(1, "#08000f");
+    gradient.addColorStop(
+        0.5,
+        theme.middle
+    );
+
+    gradient.addColorStop(
+        1,
+        theme.bottom
+    );
 
     ctx.fillStyle = gradient;
 
-    ctx.fillRect(0, 0, W, H);
-
-    // Neon moon
-    ctx.beginPath();
-
-    ctx.arc(
-        760,
-        90,
-        45,
+    ctx.fillRect(
         0,
-        Math.PI * 2
+        0,
+        W,
+        H
     );
 
-    ctx.fillStyle = "#d946ef";
-    ctx.shadowBlur = 30;
-    ctx.shadowColor = "#d946ef";
 
-    ctx.fill();
-
-    ctx.shadowBlur = 0;
-
-    // Stars
-    for (let i = 0; i < 45; i++) {
+    // Neon glow circles
+    for (let i = 0; i < 7; i++) {
 
         const x =
-            ((i * 173) % W);
+            ((i * 190 -
+                cameraX * 0.12)
+                %
+                (W + 250))
+            - 100;
 
         const y =
-            ((i * 79) % 300);
+            70 +
+            Math.sin(
+                animationTime * 0.02 + i
+            ) * 45;
+
+        ctx.beginPath();
+
+        ctx.arc(
+            x,
+            y,
+            35 +
+            Math.sin(
+                animationTime * 0.03 + i
+            ) * 10,
+            0,
+            Math.PI * 2
+        );
+
+        ctx.fillStyle =
+            theme.neon + "12";
+
+        ctx.fill();
+    }
+
+
+    // Stars
+    for (let i = 0; i < 55; i++) {
+
+        const x =
+            ((i * 157 -
+                cameraX * 0.2)
+                %
+                W + W)
+            % W;
+
+        const y =
+            (i * 73) % 290;
 
         ctx.fillStyle =
             i % 3 === 0
-                ? "#ff4fd8"
-                : "#8b5cf6";
+                ? theme.neon
+                : "#ffffff";
+
+        ctx.globalAlpha =
+            0.35 +
+            Math.sin(
+                animationTime * 0.04 + i
+            ) * 0.25;
 
         ctx.fillRect(
             x,
@@ -437,121 +649,400 @@ function drawBackground() {
         );
     }
 
-    // Gothic crosses
-    for (let x = 80; x < W; x += 230) {
+    ctx.globalAlpha = 1;
 
-        ctx.strokeStyle = "#5b146f";
-        ctx.lineWidth = 3;
 
-        ctx.beginPath();
+    // Moon
+    ctx.shadowBlur = 25;
+    ctx.shadowColor = theme.neon;
 
-        ctx.moveTo(x, 280);
-        ctx.lineTo(x, 330);
+    ctx.fillStyle = theme.neon;
 
-        ctx.moveTo(x - 12, 295);
-        ctx.lineTo(x + 12, 295);
+    ctx.beginPath();
 
-        ctx.stroke();
-    }
-}
+    ctx.arc(
+        760,
+        90,
+        42,
+        0,
+        Math.PI * 2
+    );
 
-// =========================
-// DRAW PLATFORMS
-// =========================
+    ctx.fill();
 
-function drawPlatforms() {
+    ctx.shadowBlur = 0;
 
-    for (const platform of platforms) {
 
-        const x = platform.x - cameraX;
+    // Gothic silhouettes
+    ctx.fillStyle = "#050008";
 
-        if (
-            x + platform.width < 0 ||
-            x > W
-        ) continue;
+    for (
+        let i = 0;
+        i < 12;
+        i++
+    ) {
 
-        // Glow
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = "#00ff9d";
+        const x =
+            i * 100 -
+            (cameraX * 0.1 % 100);
 
-        ctx.fillStyle = "#14151c";
+        const height =
+            80 +
+            (i * 43 % 120);
 
         ctx.fillRect(
             x,
-            platform.y,
-            platform.width,
-            platform.height
+            440 - height,
+            70,
+            height
         );
 
-        // Neon edge
-        ctx.shadowBlur = 8;
-        ctx.strokeStyle = "#00ff9d";
-        ctx.lineWidth = 3;
+        // Roof
+        ctx.beginPath();
 
-        ctx.strokeRect(
+        ctx.moveTo(
+            x + 35,
+            440 - height - 45
+        );
+
+        ctx.lineTo(
             x,
-            platform.y,
-            platform.width,
-            platform.height
+            440 - height
         );
 
-        ctx.shadowBlur = 0;
+        ctx.lineTo(
+            x + 70,
+            440 - height
+        );
+
+        ctx.fill();
     }
 }
 
-// =========================
-// DRAW TRAPS
-// =========================
 
-function drawTraps() {
+// ======================================================
+// LEVEL DECORATIONS
+// ======================================================
 
-    for (const trap of traps) {
+function drawDecorations() {
 
-        const x = trap.x - cameraX;
+    const theme = getTheme();
 
-        if (x < -100 || x > W + 100) {
-            continue;
-        }
+    for (const d of decorations) {
 
-        ctx.fillStyle = "#ff1744";
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = "#ff1744";
+        const x =
+            d.x - cameraX * 0.7;
 
-        // spikes
-        for (let i = 0; i < 4; i++) {
+        if (
+            x < -50 ||
+            x > W + 50
+        ) continue;
 
+        ctx.save();
+
+        ctx.translate(
+            x,
+            d.y
+        );
+
+        ctx.strokeStyle =
+            theme.neon;
+
+        ctx.fillStyle =
+            theme.neon + "55";
+
+        ctx.lineWidth = 2;
+
+        if (d.type === 0) {
+
+            // Bat
             ctx.beginPath();
 
             ctx.moveTo(
-                x + i * 11,
-                trap.y
+                -d.size,
+                0
             );
 
             ctx.lineTo(
-                x + 5 + i * 11,
-                trap.y - 20
+                -d.size / 2,
+                -d.size / 2
             );
 
             ctx.lineTo(
-                x + 10 + i * 11,
-                trap.y
+                0,
+                0
             );
+
+            ctx.lineTo(
+                d.size / 2,
+                -d.size / 2
+            );
+
+            ctx.lineTo(
+                d.size,
+                0
+            );
+
+            ctx.lineTo(
+                d.size / 2,
+                d.size / 2
+            );
+
+            ctx.lineTo(
+                0,
+                d.size / 3
+            );
+
+            ctx.lineTo(
+                -d.size / 2,
+                d.size / 2
+            );
+
+            ctx.closePath();
+
+            ctx.fill();
+
+        } else if (d.type === 1) {
+
+            // Cross
+            ctx.fillRect(
+                -3,
+                -d.size,
+                6,
+                d.size * 2
+            );
+
+            ctx.fillRect(
+                -d.size,
+                -3,
+                d.size * 2,
+                6
+            );
+
+        } else if (d.type === 2) {
+
+            // Diamond
+            ctx.beginPath();
+
+            ctx.moveTo(
+                0,
+                -d.size
+            );
+
+            ctx.lineTo(
+                d.size,
+                0
+            );
+
+            ctx.lineTo(
+                0,
+                d.size
+            );
+
+            ctx.lineTo(
+                -d.size,
+                0
+            );
+
+            ctx.closePath();
+
+            ctx.stroke();
+
+        } else {
+
+            // Star
+            ctx.beginPath();
+
+            for (
+                let i = 0;
+                i < 8;
+                i++
+            ) {
+
+                const angle =
+                    i * Math.PI / 4;
+
+                const radius =
+                    i % 2 === 0
+                        ? d.size
+                        : d.size / 3;
+
+                const px =
+                    Math.cos(angle) *
+                    radius;
+
+                const py =
+                    Math.sin(angle) *
+                    radius;
+
+                if (i === 0)
+                    ctx.moveTo(px, py);
+                else
+                    ctx.lineTo(px, py);
+            }
+
+            ctx.closePath();
 
             ctx.fill();
         }
 
+        ctx.restore();
+    }
+}
+
+
+// ======================================================
+// PLATFORMS
+// ======================================================
+
+function drawPlatforms() {
+
+    const theme = getTheme();
+
+    for (const p of platforms) {
+
+        if (
+            p.visible === false
+        ) continue;
+
+        const x =
+            p.x - cameraX;
+
+        if (
+            x + p.width < 0 ||
+            x > W
+        ) continue;
+
+        ctx.shadowBlur = 12;
+        ctx.shadowColor =
+            theme.neon;
+
+        ctx.fillStyle =
+            "#111018";
+
+        ctx.fillRect(
+            x,
+            p.y,
+            p.width,
+            p.height
+        );
+
+        ctx.shadowBlur = 0;
+
+        ctx.fillStyle =
+            theme.neon;
+
+        ctx.fillRect(
+            x,
+            p.y,
+            p.width,
+            5
+        );
+
+        ctx.fillStyle =
+            theme.secondary;
+
+        ctx.fillRect(
+            x,
+            p.y + 5,
+            p.width,
+            3
+        );
+    }
+}
+
+
+// ======================================================
+// TRAPS
+// ======================================================
+
+function drawTraps() {
+
+    const theme = getTheme();
+
+    for (const trap of traps) {
+
+        const x =
+            trap.x - cameraX;
+
+        if (
+            x < -100 ||
+            x > W + 100
+        ) continue;
+
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = "#ff1744";
+
+        ctx.fillStyle =
+            "#ff1744";
+
+
+        if (
+            trap.type === "falling"
+        ) {
+
+            ctx.fillRect(
+                x,
+                trap.y,
+                trap.width,
+                trap.height
+            );
+
+        } else {
+
+            const count =
+                trap.type === "double"
+                    ? 6
+                    : 4;
+
+            for (
+                let i = 0;
+                i < count;
+                i++
+            ) {
+
+                ctx.beginPath();
+
+                const spikeWidth =
+                    trap.width / count;
+
+                ctx.moveTo(
+                    x + i * spikeWidth,
+                    trap.y
+                );
+
+                ctx.lineTo(
+                    x +
+                    i * spikeWidth +
+                    spikeWidth / 2,
+                    trap.y - trap.height
+                );
+
+                ctx.lineTo(
+                    x +
+                    (i + 1) * spikeWidth,
+                    trap.y
+                );
+
+                ctx.fill();
+            }
+        }
+
         ctx.shadowBlur = 0;
     }
 }
 
-// =========================
-// DRAW STICKMAN
-// =========================
 
-function drawStickman() {
+// ======================================================
+// PLAYER
+// ======================================================
+
+function drawPlayer() {
 
     const x =
-        player.x - cameraX;
+        player.x -
+        cameraX +
+        player.width / 2;
 
     const y =
         player.y;
@@ -559,7 +1050,7 @@ function drawStickman() {
     ctx.save();
 
     ctx.translate(
-        x + player.width / 2,
+        x,
         y
     );
 
@@ -568,75 +1059,131 @@ function drawStickman() {
         1
     );
 
-    ctx.strokeStyle = "#ffffff";
+    ctx.strokeStyle =
+        "#ffffff";
+
     ctx.lineWidth = 5;
-    ctx.lineCap = "round";
+
+    ctx.lineCap =
+        "round";
 
     ctx.shadowBlur = 12;
-    ctx.shadowColor = "#ffffff";
+    ctx.shadowColor =
+        "#ffffff";
+
 
     // Head
     ctx.beginPath();
 
     ctx.arc(
         0,
-        12,
         11,
+        10,
         0,
         Math.PI * 2
     );
 
     ctx.stroke();
 
+
     // Body
     ctx.beginPath();
 
-    ctx.moveTo(0, 23);
-    ctx.lineTo(0, 43);
+    ctx.moveTo(
+        0,
+        21
+    );
+
+    ctx.lineTo(
+        0,
+        42
+    );
 
     ctx.stroke();
 
+
     const walk =
         player.walking
-            ? Math.sin(player.walkTime) * 12
+            ? Math.sin(
+                player.walkTime
+            ) * 11
             : 0;
+
 
     // Arms
     ctx.beginPath();
 
-    ctx.moveTo(0, 27);
-    ctx.lineTo(-14, 35 + walk * 0.4);
+    ctx.moveTo(
+        0,
+        27
+    );
 
-    ctx.moveTo(0, 27);
-    ctx.lineTo(14, 35 - walk * 0.4);
+    ctx.lineTo(
+        -14,
+        36 + walk * 0.4
+    );
+
+    ctx.moveTo(
+        0,
+        27
+    );
+
+    ctx.lineTo(
+        14,
+        36 - walk * 0.4
+    );
 
     ctx.stroke();
+
 
     // Legs
     ctx.beginPath();
 
-    ctx.moveTo(0, 43);
-    ctx.lineTo(-12, 55 + walk);
+    ctx.moveTo(
+        0,
+        42
+    );
 
-    ctx.moveTo(0, 43);
-    ctx.lineTo(12, 55 - walk);
+    ctx.lineTo(
+        -11 + walk,
+        55
+    );
+
+    ctx.moveTo(
+        0,
+        42
+    );
+
+    ctx.lineTo(
+        11 - walk,
+        55
+    );
 
     ctx.stroke();
+
+    ctx.shadowBlur = 0;
 
     ctx.restore();
 }
 
-// =========================
-// DRAW GOAL
-// =========================
+
+// ======================================================
+// GOAL
+// ======================================================
 
 function drawGoal() {
 
-    const x = goalX - cameraX;
+    const theme = getTheme();
 
-    ctx.fillStyle = "#ff00cc";
+    const x =
+        goalX - cameraX;
+
     ctx.shadowBlur = 20;
-    ctx.shadowColor = "#ff00cc";
+    ctx.shadowColor =
+        theme.neon;
+
+    ctx.fillStyle =
+        theme.neon;
 
     ctx.fillRect(
         x,
@@ -645,248 +1192,31 @@ function drawGoal() {
         140
     );
 
-    ctx.fillStyle = "#ffffff";
+    ctx.shadowBlur = 0;
 
-    ctx.font = "bold 18px Arial";
+    ctx.fillStyle =
+        "#ffffff";
+
+    ctx.font =
+        "bold 18px monospace";
 
     ctx.fillText(
         "EXIT",
         x - 15,
         285
     );
-
-    ctx.shadowBlur = 0;
 }
 
-// =========================
+
+// ======================================================
 // HUD
-// =========================
+// ======================================================
 
 function drawHUD() {
 
-    ctx.fillStyle = "#ffffff";
-
-    ctx.font = "bold 20px Arial";
-
-    ctx.fillText(
-        "ROUND " + round,
-        25,
-        35
-    );
-
-    ctx.fillStyle = "#ff4fd8";
-
-    ctx.fillText(
-        "SCORE: " + score,
-        25,
-        65
-    );
-
-    ctx.fillStyle = "#aaaaaa";
-
-    ctx.font = "14px Arial";
-
-    ctx.fillText(
-        "GOTH TROLL PLATFORMER",
-        25,
-        88
-    );
-}
-
-// =========================
-// GAME OVER SCREEN
-// =========================
-
-function drawGameOver() {
+    const theme = getTheme();
 
     ctx.fillStyle =
-        "rgba(0,0,0,0.78)";
+        "#ffffff";
 
-    ctx.fillRect(
-        0,
-        0,
-        W,
-        H
-    );
-
-    ctx.textAlign = "center";
-
-    ctx.fillStyle = "#ff1744";
-
-    ctx.font = "bold 50px Arial";
-
-    ctx.fillText(
-        "YOU DIED",
-        W / 2,
-        190
-    );
-
-    ctx.fillStyle = "#ffffff";
-
-    ctx.font = "22px Arial";
-
-    ctx.fillText(
-        "Tap the screen to respawn",
-        W / 2,
-        240
-    );
-
-    ctx.font = "18px Arial";
-
-    ctx.fillStyle = "#ff4fd8";
-
-    ctx.fillText(
-        "Score: " + score,
-        W / 2,
-        280
-    );
-
-    ctx.textAlign = "left";
-}
-
-// =========================
-// ROUND COMPLETE
-// =========================
-
-function drawRoundComplete() {
-
-    ctx.fillStyle =
-        "rgba(5,0,15,0.85)";
-
-    ctx.fillRect(
-        0,
-        0,
-        W,
-        H
-    );
-
-    ctx.textAlign = "center";
-
-    ctx.fillStyle = "#00ff9d";
-
-    ctx.font = "bold 45px Arial";
-
-    ctx.fillText(
-        "ROUND COMPLETE",
-        W / 2,
-        190
-    );
-
-    ctx.fillStyle = "#ffffff";
-
-    ctx.font = "22px Arial";
-
-    ctx.fillText(
-        "Round " + round + " cleared!",
-        W / 2,
-        235
-    );
-
-    ctx.fillStyle = "#ff4fd8";
-
-    ctx.fillText(
-        "+ " + (100 * round) + " SCORE",
-        W / 2,
-        275
-    );
-
-    ctx.fillStyle = "#aaaaaa";
-
-    ctx.font = "18px Arial";
-
-    ctx.fillText(
-        "Tap the screen for Round " +
-        (round + 1),
-        W / 2,
-        330
-    );
-
-    ctx.textAlign = "left";
-}
-
-// =========================
-// DRAW EVERYTHING
-// =========================
-
-function draw() {
-
-    ctx.clearRect(
-        0,
-        0,
-        W,
-        H
-    );
-
-    drawBackground();
-    drawPlatforms();
-    drawTraps();
-    drawGoal();
-    drawStickman();
-    drawHUD();
-
-    if (gameOver) {
-        drawGameOver();
-    }
-
-    if (roundComplete) {
-        drawRoundComplete();
-    }
-}
-
-// =========================
-// GAME LOOP
-// =========================
-
-function gameLoop() {
-
-    update();
-    draw();
-
-    requestAnimationFrame(gameLoop);
-}
-
-// =========================
-// TAP SCREEN TO RESPAWN
-// =========================
-
-canvas.addEventListener(
-    "click",
-    () => {
-
-        if (gameOver) {
-            restartGame();
-        }
-        else if (roundComplete) {
-            nextRound();
-        }
-
-    }
-);
-
-document.addEventListener(
-    "touchstart",
-    e => {
-
-        if (
-            e.target === canvas &&
-            (gameOver || roundComplete)
-        ) {
-
-            if (gameOver) {
-                restartGame();
-            }
-            else {
-                nextRound();
-            }
-        }
-
-    },
-    { passive: true }
-);
-
-// =========================
-// START
-// =========================
-
-createLevel();
-gameLoop();
+    ct
