@@ -1,14 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1.0,
-                   maximum-scale=1.0, user-scalable=no">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    >
 
     <title>Troll Platformer</title>
 
     <style>
+
         * {
             box-sizing: border-box;
             margin: 0;
@@ -18,7 +22,6 @@
         body {
             background: #050008;
             overflow: hidden;
-            font-family: monospace;
             touch-action: none;
         }
 
@@ -29,34 +32,49 @@
             background: #08000d;
         }
 
+        /* CONTROLS */
+
         #controls {
             position: fixed;
             bottom: 20px;
             left: 0;
+
             width: 100%;
+
             display: flex;
             justify-content: space-between;
+            align-items: center;
+
             padding: 0 25px;
+
             pointer-events: none;
         }
 
         .side {
             display: flex;
             gap: 15px;
+
             pointer-events: auto;
         }
 
         button {
             width: 70px;
             height: 70px;
+
             border-radius: 50%;
+
             border: 2px solid #ff4fae;
-            background: rgba(20, 0, 25, 0.8);
+
+            background: rgba(20, 0, 25, 0.85);
+
             color: #ff8dcc;
+
             font-size: 30px;
             font-weight: bold;
+
             user-select: none;
             -webkit-user-select: none;
+
             touch-action: none;
         }
 
@@ -64,27 +82,49 @@
             background: #ff4fae;
             color: #08000d;
         }
+
     </style>
+
 </head>
+
 
 <body>
 
+    <!-- GAME -->
+
     <canvas id="game"></canvas>
+
+
+    <!-- CONTROLS -->
 
     <div id="controls">
 
-        <div class="side">
-            <button id="left">←</button>
-        </div>
+        <!-- LEFT SIDE: BACK + FORWARD -->
 
         <div class="side">
+
+            <button id="left">←</button>
+
             <button id="right">→</button>
+
+        </div>
+
+
+        <!-- RIGHT SIDE: JUMP ONLY -->
+
+        <div class="side">
+
             <button id="jump">↑</button>
+
         </div>
 
     </div>
 
+
+    <!-- YOUR GAME CODE -->
+
     <script src="game.js"></script>
 
 </body>
-</html>
+
+    </html>
