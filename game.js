@@ -4,27 +4,28 @@ const ctx = canvas.getContext("2d");
 canvas.width = 800;
 canvas.height = 450;
 
-// ==================================================
-// GAME STATE
-// ==================================================
+// ===============================
+// GAME SETTINGS
+// ===============================
 
 let round = 1;
 let score = 0;
-let bestScore = 0;
-
 let gameOver = false;
 let roundComplete = false;
 
 let cameraX = 0;
+let levelLength = 2500;
 
-// ==================================================
+const gravity = 0.6;
+const jumpPower = -11;
+
+// ===============================
 // PLAYER
-// ==================================================
+// ===============================
 
 const player = {
-    x: 70,
-    y: 335,
-
+    x: 80,
+    y: 300,
     width: 24,
     height: 45,
 
@@ -32,1073 +33,408 @@ const player = {
     velocityY: 0,
 
     jumping: false,
+    walking: false,
+    direction: 1,
     walkTime: 0
 };
 
-const gravity = 0.6;
-const jumpPower = -11;
+// ===============================
+// CONTROLS
+// ===============================
 
-const keys = {
-    left: false,
-    right: false
-};
+const keys = {};
 
-// ==================================================
-// LEVEL DATA
-// ==================================================
+document.addEventListener("keydown", e => {
+    keys[e.key] = true;
 
-let platforms = [];
-let spikes = [];
+    if (
+        e.key === " " ||
+        e.key === "ArrowUp" ||
+        e.key === "w"
+    ) {
+        e.preventDefault();
+    }
 
-let goal = {
-    x: 0,
-    y: 0,
-    width: 45,
-    height: 80
-};
+    if (gameOver) {
+        restartGame();
+    }
+});
 
-// ==================================================
-// MOBILE CONTROLS
-// ==================================================
+document.addEventListener("keyup", e => {
+    keys[e.key] = false;
+});
 
-const leftButton = document.getElementById("left");
-const rightButton = document.getElementById("right");
-const jumpButton = document.getElementById("jump");
+// ===============================
+// TOUCH CONTROLS
+// ===============================
 
-function holdButton(button, down, up) {
+function buttonPressed(id, key) {
+    const button = document.getElementById(id);
 
     if (!button) return;
 
-    button.addEventListener("touchstart", function(e) {
-        e.preventDefault();
-        down();
-    });
-
-    button.addEventListener("touchend", function(e) {
-        e.preventDefault();
-        up();
-    });
-
-    button.addEventListener("touchcancel", up);
-
-    button.addEventListener("mousedown", down);
-    button.addEventListener("mouseup", up);
-    button.addEventListener("mouseleave", up);
-}
-
-holdButton(
-    leftButton,
-    function() {
-        keys.left = true;
-    },
-    function() {
-        keys.left = false;
-    }
-);
-
-holdButton(
-    rightButton,
-    function() {
-        keys.right = true;
-    },
-    function() {
-        keys.right = false;
-    }
-);
-
-if (jumpButton) {
-
-    jumpButton.addEventListener("touchstart", function(e) {
-
+    button.addEventListener("touchstart", e => {
         e.preventDefault();
 
         if (gameOver) {
-            restartRound();
-        } else if (roundComplete) {
-            nextRound();
-        } else {
-            jump();
-        }
-    });
-
-    jumpButton.addEventListener("mousedown", function() {
-
-        if (gameOver) {
-            restartRound();
-        } else if (roundComplete) {
-            nextRound();
-        } else {
-            jump();
-        }
-    });
-}
-
-// ==================================================
-// KEYBOARD
-// ==================================================
-
-document.addEventListener("keydown", function(e) {
-
-    if (e.key === "ArrowLeft" || e.key === "a") {
-        keys.left = true;
-    }
-
-    if (e.key === "ArrowRight" || e.key === "d") {
-        keys.right = true;
-    }
-
-    if (
-        e.key === "ArrowUp" ||
-        e.key === "w" ||
-        e.key === " "
-    ) {
-
-        e.preventDefault();
-
-        if (gameOver) {
-            restartRound();
-        } else if (roundComplete) {
-            nextRound();
-        } else {
-            jump();
-        }
-    }
-
-    if (e.key.toLowerCase() === "r") {
-
-        if (gameOver) {
-            restartRound();
-        }
-    }
-});
-
-document.addEventListener("keyup", function(e) {
-
-    if (e.key === "ArrowLeft" || e.key === "a") {
-        keys.left = false;
-    }
-
-    if (e.key === "ArrowRight" || e.key === "d") {
-        keys.right = false;
-    }
-});
-
-// ==================================================
-// TAP SCREEN TO REVIVE / NEXT ROUND
-// ==================================================
-
-canvas.addEventListener("touchstart", function(e) {
-
-    if (gameOver) {
-
-        e.preventDefault();
-        restartRound();
-
-    } else if (roundComplete) {
-
-        e.preventDefault();
-        nextRound();
-    }
-});
-
-canvas.addEventListener("click", function() {
-
-    if (gameOver) {
-
-        restartRound();
-
-    } else if (roundComplete) {
-
-        nextRound();
-    }
-});
-
-// ==================================================
-// JUMP
-// ==================================================
-
-function jump() {
-
-    if (
-        !player.jumping &&
-        !gameOver &&
-        !roundComplete
-    ) {
-
-        player.velocityY = jumpPower;
-        player.jumping = true;
-    }
-}
-
-// ==================================================
-// CREATE ROUND
-// ==================================================
-
-function createRound() {
-
-    platforms = [];
-    spikes = [];
-
-    // ----------------------------------------------
-    // Difficulty
-    // ----------------------------------------------
-
-    const difficulty = round;
-
-    const gapSize =
-        Math.min(100 + difficulty * 5, 160);
-
-    const platformSize =
-        Math.max(300 - difficulty * 8, 170);
-
-    const spikeChance =
-        Math.min(0.25 + difficulty * 0.04, 0.7);
-
-    // ----------------------------------------------
-    // Starting platform
-    // ----------------------------------------------
-
-    platforms.push({
-        x: 0,
-        y: 380,
-        width: 500,
-        height: 70
-    });
-
-    let currentX = 500;
-
-    // ----------------------------------------------
-    // Generate platforms
-    // ----------------------------------------------
-
-    const numberOfPlatforms =
-        7 + difficulty * 2;
-
-    for (
-        let i = 0;
-        i < numberOfPlatforms;
-        i++
-    ) {
-
-        // Gap
-
-        const gap =
-            gapSize +
-            Math.random() * 50;
-
-        currentX += gap;
-
-        // Platform
-
-        const width =
-            platformSize +
-            Math.random() * 100;
-
-        const raisedChance =
-            Math.min(0.15 + difficulty * 0.03, 0.55);
-
-        let platformY = 380;
-
-        if (Math.random() < raisedChance) {
-
-            platformY =
-                300 +
-                Math.random() * 60;
-        }
-
-        platforms.push({
-
-            x: currentX,
-
-            y: platformY,
-
-            width: width,
-
-            height: 70
-        });
-
-        // ------------------------------------------
-        // Spikes
-        // ------------------------------------------
-
-        if (
-            Math.random() < spikeChance &&
-            width > 190
-        ) {
-
-            const spikeCount =
-                difficulty >= 4
-                    ? 2
-                    : 1;
-
-            for (
-                let s = 0;
-                s < spikeCount;
-                s++
-            ) {
-
-                spikes.push({
-
-                    x:
-                        currentX +
-                        80 +
-                        s * 55,
-
-                    y:
-                        platformY - 20,
-
-                    width: 40,
-
-                    height: 20
-                });
-            }
-        }
-
-        currentX += width;
-    }
-
-    // ----------------------------------------------
-    // Final platform
-    // ----------------------------------------------
-
-    currentX += gapSize;
-
-    platforms.push({
-
-        x: currentX,
-
-        y: 380,
-
-        width: 500,
-
-        height: 70
-    });
-
-    // ----------------------------------------------
-    // Goal
-    // ----------------------------------------------
-
-    goal = {
-
-        x: currentX + 400,
-
-        y: 300,
-
-        width: 45,
-
-        height: 80
-    };
-}
-
-// ==================================================
-// COLLISION
-// ==================================================
-
-function collision(a, b) {
-
-    return (
-
-        a.x < b.x + b.width &&
-
-        a.x + a.width > b.x &&
-
-        a.y < b.y + b.height &&
-
-        a.y + a.height > b.y
-    );
-}
-
-// ==================================================
-// UPDATE
-// ==================================================
-
-function update() {
-
-    if (
-        gameOver ||
-        roundComplete
-    ) {
-        return;
-    }
-
-    let walking = false;
-
-    // ----------------------------------------------
-    // Movement
-    // ----------------------------------------------
-
-    if (keys.left) {
-
-        player.x -= player.speed;
-
-        walking = true;
-    }
-
-    if (keys.right) {
-
-        player.x += player.speed;
-
-        walking = true;
-    }
-
-    // ----------------------------------------------
-    // Walking animation
-    // ----------------------------------------------
-
-    if (walking) {
-
-        player.walkTime += 0.2;
-
-    } else {
-
-        player.walkTime = 0;
-    }
-
-    // ----------------------------------------------
-    // Gravity
-    // ----------------------------------------------
-
-    player.velocityY += gravity;
-
-    player.y += player.velocityY;
-
-    player.jumping = true;
-
-    // ----------------------------------------------
-    // Platform collision
-    // ----------------------------------------------
-
-    for (const platform of platforms) {
-
-        const bottom =
-            player.y + player.height;
-
-        if (
-
-            player.x + player.width >
-                platform.x &&
-
-            player.x <
-                platform.x + platform.width &&
-
-            bottom >= platform.y &&
-
-            bottom <=
-                platform.y + 25 &&
-
-            player.velocityY >= 0
-
-        ) {
-
-            player.y =
-                platform.y - player.height;
-
-            player.velocityY = 0;
-
-            player.jumping = false;
-        }
-    }
-
-    // ----------------------------------------------
-    // Spike collision
-    // ----------------------------------------------
-
-    for (const spike of spikes) {
-
-        if (collision(player, spike)) {
-
-            die();
-
+            restartGame();
             return;
         }
+
+        keys[key] = true;
+    }, { passive: false });
+
+    button.addEventListener("touchend", e => {
+        e.preventDefault();
+        keys[key] = false;
+    }, { passive: false });
+
+    button.addEventListener("mousedown", () => {
+        if (gameOver) {
+            restartGame();
+            return;
+        }
+
+        keys[key] = true;
+    });
+
+    button.addEventListener("mouseup", () => {
+        keys[key] = false;
+    });
+}
+
+buttonPressed("left", "ArrowLeft");
+buttonPressed("right", "ArrowRight");
+buttonPressed("jump", "ArrowUp");
+
+// Tap screen to revive
+canvas.addEventListener("touchstart", () => {
+    if (gameOver) {
+        restartGame();
+    }
+});
+
+canvas.addEventListener("click", () => {
+    if (gameOver) {
+        restartGame();
+    }
+});
+
+// ===============================
+// LEVEL
+// ===============================
+
+let platforms = [];
+
+function createLevel() {
+    platforms = [];
+
+    let x = 0;
+
+    while (x < levelLength) {
+
+        const width = 180 + Math.random() * 180;
+
+        platforms.push({
+            x: x,
+            y: 390,
+            width: width,
+            height: 60
+        });
+
+        x += width;
+
+        // Gap becomes larger every round
+        const maxGap = Math.min(90 + round * 8, 160);
+
+        x += 40 + Math.random() * maxGap;
     }
 
-    // ----------------------------------------------
-    // Fall into gap
-    // ----------------------------------------------
+    // Final platform
+    platforms.push({
+        x: levelLength,
+        y: 390,
+        width: 300,
+        height: 60
+    });
+}
 
-    if (player.y > 520) {
+createLevel();
 
-        die();
+// ===============================
+// GOTH DECORATIONS
+// ===============================
 
-        return;
-    }
+let decorations = [];
 
-    // ----------------------------------------------
-    // Goal
-    // ----------------------------------------------
+function createDecorations() {
 
-    if (collision(player, goal)) {
+    decorations = [];
 
-        finishRound();
+    for (let i = 0; i < 100; i++) {
 
-        return;
-    }
-
-    // ----------------------------------------------
-    // Camera
-    // ----------------------------------------------
-
-    cameraX =
-        player.x - 180;
-
-    if (cameraX < 0) {
-
-        cameraX = 0;
-    }
-
-    // ----------------------------------------------
-    // Score
-    // ----------------------------------------------
-
-    score =
-        Math.max(
-            score,
-            Math.floor(
-                player.x / 10
-            )
-        );
-
-    if (score > bestScore) {
-
-        bestScore = score;
+        decorations.push({
+            x: Math.random() * levelLength,
+            y: 40 + Math.random() * 250,
+            size: 8 + Math.random() * 18,
+            type: Math.floor(Math.random() * 4)
+        });
     }
 }
 
-// ==================================================
-// DIE
-// ==================================================
+createDecorations();
 
-function die() {
+// ===============================
+// BACKGROUND
+// ===============================
 
-    gameOver = true;
-
-    if (score > bestScore) {
-
-        bestScore = score;
-    }
-}
-
-// ==================================================
-// RESTART CURRENT ROUND
-// ==================================================
-
-function restartRound() {
-
-    player.x = 70;
-    player.y = 335;
-
-    player.velocityY = 0;
-
-    player.jumping = false;
-
-    player.walkTime = 0;
-
-    cameraX = 0;
-
-    gameOver = false;
-
-    roundComplete = false;
-
-    // Keep score, but give a small penalty
-
-    score =
-        Math.max(
-            0,
-            score - 10
-        );
-}
-
-// ==================================================
-// FINISH ROUND
-// ==================================================
-
-function finishRound() {
-
-    roundComplete = true;
-
-    if (score > bestScore) {
-
-        bestScore = score;
-    }
-}
-
-// ==================================================
-// NEXT ROUND
-// ==================================================
-
-function nextRound() {
-
-    round++;
-
-    roundComplete = false;
-
-    gameOver = false;
-
-    player.x = 70;
-    player.y = 335;
-
-    player.velocityY = 0;
-
-    player.jumping = false;
-
-    player.walkTime = 0;
-
-    cameraX = 0;
-
-    // Increase movement speed
-
-    player.speed =
-        Math.min(
-            4 + round * 0.25,
-            7
-        );
-
-    createRound();
-}
-
-// ==================================================
-// GOTH BACKGROUND
-// ==================================================
+let bgTime = 0;
 
 function drawBackground() {
 
-    const time =
-        Date.now() / 2000;
+    bgTime += 0.01;
 
-    // ----------------------------------------------
-    // Background gradient
-    // ----------------------------------------------
+    const gradient = ctx.createLinearGradient(
+        0,
+        0,
+        0,
+        canvas.height
+    );
 
-    const gradient =
-        ctx.createLinearGradient(
-            0,
-            0,
-            0,
-            canvas.height
-        );
-
-    const hueShift =
-        (round - 1) * 8;
+    const hue = (bgTime * 40 + round * 45) % 360;
 
     gradient.addColorStop(
         0,
-        `hsl(${275 + hueShift}, 50%, 6%)`
-    );
-
-    gradient.addColorStop(
-        0.5,
-        `hsl(${285 + hueShift}, 55%, 12%)`
+        `hsl(${hue}, 65%, 12%)`
     );
 
     gradient.addColorStop(
         1,
-        `hsl(${260 + hueShift}, 50%, 4%)`
+        `hsl(${(hue + 80) % 360}, 70%, 5%)`
     );
 
     ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    ctx.fillRect(
-        0,
-        0,
-        canvas.width,
-        canvas.height
-    );
+    // Neon grid
+    ctx.strokeStyle = `hsla(${(hue + 40) % 360}, 100%, 65%, 0.12)`;
+    ctx.lineWidth = 1;
 
-    // ----------------------------------------------
-    // Moon
-    // ----------------------------------------------
+    for (let x = -cameraX % 50; x < canvas.width; x += 50) {
 
-    const moonX = 650;
-    const moonY = 90;
-
-    ctx.shadowColor =
-        "#d9b3ff";
-
-    ctx.shadowBlur = 25;
-
-    ctx.fillStyle =
-        "#eee2ff";
-
-    ctx.beginPath();
-
-    ctx.arc(
-        moonX,
-        moonY,
-        43,
-        0,
-        Math.PI * 2
-    );
-
-    ctx.fill();
-
-    ctx.shadowBlur = 0;
-
-    // Moon shadow
-
-    ctx.fillStyle =
-        `hsl(${275 + hueShift}, 50%, 8%)`;
-
-    ctx.beginPath();
-
-    ctx.arc(
-        moonX + 16,
-        moonY - 10,
-        40,
-        0,
-        Math.PI * 2
-    );
-
-    ctx.fill();
-
-    // ----------------------------------------------
-    // Stars
-    // ----------------------------------------------
-
-    for (let i = 0; i < 55; i++) {
-
-        const x =
-            (i * 137) %
-            canvas.width;
-
-        const y =
-            20 +
-            ((i * 71) % 230);
-
-        const twinkle =
-            0.4 +
-            Math.sin(
-                time * 3 + i
-            ) * 0.4;
-
-        ctx.fillStyle =
-            `rgba(255,255,255,${twinkle})`;
-
-        ctx.fillRect(
-            x,
-            y,
-            2,
-            2
-        );
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
     }
 
-    // ----------------------------------------------
-    // Gothic buildings
-    // ----------------------------------------------
+    for (let y = 0; y < canvas.height; y += 50) {
 
-    ctx.fillStyle =
-        "#08040d";
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+    }
 
-    for (let i = 0; i < 14; i++) {
+    // Glowing circles
+    for (let i = 0; i < 8; i++) {
 
         const x =
-            i * 75 -
-            (
-                cameraX * 0.15 %
-                75
-            );
+            ((i * 150 - cameraX * 0.2) %
+                (canvas.width + 200)) - 100;
 
-        const height =
-            60 +
-            ((i * 47) % 100);
-
-        ctx.fillRect(
-            x,
-            380 - height,
-            60,
-            height
-        );
-
-        // Tower
+        const y =
+            70 + Math.sin(bgTime + i) * 40;
 
         ctx.beginPath();
 
-        ctx.moveTo(
-            x + 30,
-            380 - height - 45
-        );
-
-        ctx.lineTo(
-            x + 8,
-            380 - height
-        );
-
-        ctx.lineTo(
-            x + 52,
-            380 - height
-        );
-
-        ctx.closePath();
-
-        ctx.fill();
-
-        // Window
-
-        ctx.fillStyle =
-            "rgba(190,100,255,0.35)";
-
-        ctx.fillRect(
-            x + 25,
-            390 - height,
-            8,
-            16
-        );
-
-        ctx.fillStyle =
-            "#08040d";
-    }
-
-    // ----------------------------------------------
-    // Gothic crosses
-    // ----------------------------------------------
-
-    for (let i = 0; i < 5; i++) {
-
-        const x =
-            i * 190 -
-            (
-                cameraX * 0.12 %
-                190
-            );
-
-        const y = 260;
-
-        ctx.fillStyle =
-            "rgba(180,100,230,0.25)";
-
-        ctx.fillRect(
+        ctx.arc(
             x,
             y,
-            7,
-            45
+            30 + Math.sin(bgTime * 2 + i) * 10,
+            0,
+            Math.PI * 2
         );
 
-        ctx.fillRect(
-            x - 12,
-            y + 10,
-            31,
-            7
-        );
+        ctx.fillStyle =
+            `hsla(${(hue + i * 40) % 360},100%,60%,0.06)`;
+
+        ctx.fill();
     }
 }
 
-// ==================================================
-// DRAW PLATFORMS
-// ==================================================
+// ===============================
+// GOTH DECOR
+// ===============================
+
+function drawDecorations() {
+
+    decorations.forEach(d => {
+
+        const x = d.x - cameraX;
+
+        if (x < -50 || x > canvas.width + 50) return;
+
+        ctx.save();
+
+        ctx.translate(x, d.y);
+
+        ctx.strokeStyle = "rgba(255,255,255,0.35)";
+        ctx.fillStyle = "rgba(255,255,255,0.15)";
+
+        if (d.type === 0) {
+
+            // Bat
+            ctx.beginPath();
+
+            ctx.moveTo(-d.size, 0);
+            ctx.lineTo(-d.size / 2, -d.size / 2);
+            ctx.lineTo(0, 0);
+            ctx.lineTo(d.size / 2, -d.size / 2);
+            ctx.lineTo(d.size, 0);
+            ctx.lineTo(d.size / 2, d.size / 3);
+            ctx.lineTo(0, d.size / 4);
+            ctx.lineTo(-d.size / 2, d.size / 3);
+
+            ctx.closePath();
+            ctx.fill();
+
+        } else if (d.type === 1) {
+
+            // Moon
+            ctx.beginPath();
+
+            ctx.arc(
+                0,
+                0,
+                d.size,
+                0,
+                Math.PI * 2
+            );
+
+            ctx.stroke();
+
+        } else if (d.type === 2) {
+
+            // Diamond
+            ctx.beginPath();
+
+            ctx.moveTo(0, -d.size);
+            ctx.lineTo(d.size, 0);
+            ctx.lineTo(0, d.size);
+            ctx.lineTo(-d.size, 0);
+
+            ctx.closePath();
+            ctx.stroke();
+
+        } else {
+
+            // Tiny star
+            ctx.beginPath();
+
+            for (let i = 0; i < 8; i++) {
+
+                const a = i * Math.PI / 4;
+
+                const r =
+                    i % 2 === 0
+                        ? d.size
+                        : d.size / 3;
+
+                const px = Math.cos(a) * r;
+                const py = Math.sin(a) * r;
+
+                if (i === 0)
+                    ctx.moveTo(px, py);
+                else
+                    ctx.lineTo(px, py);
+            }
+
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        ctx.restore();
+    });
+}
+
+// ===============================
+// PLATFORM DRAWING
+// ===============================
 
 function drawPlatforms() {
 
-    for (const platform of platforms) {
+    platforms.forEach(p => {
 
-        const x =
-            platform.x - cameraX;
+        const x = p.x - cameraX;
 
-        // Platform
-
-        ctx.fillStyle =
-            "#100d14";
-
-        ctx.fillRect(
-            x,
-            platform.y,
-            platform.width,
-            platform.height
-        );
+        if (x + p.width < 0 || x > canvas.width)
+            return;
 
         // Neon top
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = "#ff2bd6";
 
-        ctx.fillStyle =
-            "#b84cff";
+        ctx.fillStyle = "#111";
 
         ctx.fillRect(
             x,
-            platform.y,
-            platform.width,
-            4
+            p.y,
+            p.width,
+            p.height
         );
-
-        // Gothic decorations
-
-        ctx.fillStyle =
-            "#382043";
-
-        for (
-            let d = x + 20;
-            d < x + platform.width - 10;
-            d += 55
-        ) {
-
-            ctx.beginPath();
-
-            ctx.moveTo(
-                d,
-                platform.y + 15
-            );
-
-            ctx.lineTo(
-                d + 9,
-                platform.y + 32
-            );
-
-            ctx.lineTo(
-                d + 18,
-                platform.y + 15
-            );
-
-            ctx.closePath();
-
-            ctx.fill();
-        }
-    }
-}
-
-// ==================================================
-// DRAW SPIKES
-// ==================================================
-
-function drawSpikes() {
-
-    for (const spike of spikes) {
-
-        const x =
-            spike.x - cameraX;
-
-        ctx.shadowColor =
-            "#ff176f";
-
-        ctx.shadowBlur = 10;
-
-        ctx.fillStyle =
-            "#ff176f";
-
-        ctx.beginPath();
-
-        ctx.moveTo(
-            x,
-            spike.y + spike.height
-        );
-
-        ctx.lineTo(
-            x + spike.width / 2,
-            spike.y
-        );
-
-        ctx.lineTo(
-            x + spike.width,
-            spike.y + spike.height
-        );
-
-        ctx.closePath();
-
-        ctx.fill();
 
         ctx.shadowBlur = 0;
-    }
+
+        ctx.fillStyle = "#ff2bd6";
+
+        ctx.fillRect(
+            x,
+            p.y,
+            p.width,
+            5
+        );
+
+        // Purple bottom
+        ctx.fillStyle = "#6b1aff";
+
+        ctx.fillRect(
+            x,
+            p.y + 5,
+            p.width,
+            5
+        );
+    });
 }
 
-// ==================================================
-// DRAW GOAL
-// ==================================================
+// ===============================
+// STICKMAN
+// ===============================
 
-function drawGoal() {
+function drawPlayer() {
 
-    const x =
-        goal.x - cameraX;
+    const x = player.x - cameraX;
+    const y = player.y;
 
-    ctx.fillStyle =
-        "#181018";
+    ctx.save();
 
-    ctx.fillRect(
-        x,
-        goal.y,
-        6,
-        goal.height
-    );
+    ctx.translate(x + player.width / 2, y);
 
-    ctx.shadowColor =
-        "#d75cff";
+    ctx.scale(player.direction, 1);
 
-    ctx.shadowBlur = 15;
-
-    ctx.fillStyle =
-        "#d75cff";
-
-    ctx.beginPath();
-
-    ctx.moveTo(
-        x + 6,
-        goal.y
-    );
-
-    ctx.lineTo(
-        x + 45,
-        goal.y + 18
-    );
-
-    ctx.lineTo(
-        x + 6,
-        goal.y + 36
-    );
-
-    ctx.closePath();
-
-    ctx.fill();
-
-    ctx.shadowBlur = 0;
-}
-
-// ==================================================
-// DRAW STICKMAN
-// ==================================================
-
-function drawStickman() {
-
-    const x =
-        player.x -
-        cameraX +
-        12;
-
-    const y =
-        player.y;
-
-    const walking =
-        keys.left ||
-        keys.right;
-
-    const legMovement =
-        walking
-            ? Math.sin(
-                player.walkTime
-            ) * 9
-            : 0;
-
-    const armMovement =
-        walking
-            ? Math.sin(
-                player.walkTime
-            ) * 7
-            : 0;
-
-    ctx.shadowColor =
-        "#d75cff";
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 4;
+    ctx.lineCap = "round";
 
     ctx.shadowBlur = 12;
-
-    ctx.strokeStyle =
-        "#ffffff";
-
-    ctx.lineWidth = 5;
-
-    ctx.lineCap =
-        "round";
+    ctx.shadowColor = "#ffffff";
 
     // Head
-
     ctx.beginPath();
 
     ctx.arc(
-        x,
-        y + 8,
+        0,
+        8,
         9,
         0,
         Math.PI * 2
@@ -1107,71 +443,389 @@ function drawStickman() {
     ctx.stroke();
 
     // Body
-
     ctx.beginPath();
 
-    ctx.moveTo(
-        x,
-        y + 17
-    );
-
-    ctx.lineTo(
-        x,
-        y + 32
-    );
+    ctx.moveTo(0, 17);
+    ctx.lineTo(0, 32);
 
     ctx.stroke();
 
-    // Arms
+    // Walking animation
+    let legOffset = 0;
 
+    if (player.walking) {
+
+        legOffset =
+            Math.sin(player.walkTime) * 7;
+    }
+
+    // Arms
     ctx.beginPath();
 
-    ctx.moveTo(
-        x,
-        y + 20
-    );
+    ctx.moveTo(0, 20);
 
     ctx.lineTo(
-        x - 14,
-        y + 28 + armMovement
+        -9,
+        28 + legOffset * 0.4
     );
 
-    ctx.moveTo(
-        x,
-        y + 20
-    );
+    ctx.moveTo(0, 20);
 
     ctx.lineTo(
-        x + 14,
-        y + 28 - armMovement
+        9,
+        28 - legOffset * 0.4
     );
 
     ctx.stroke();
 
     // Legs
-
     ctx.beginPath();
 
-    ctx.moveTo(
-        x,
-        y + 32
-    );
+    ctx.moveTo(0, 32);
 
     ctx.lineTo(
-        x - 9 + legMovement,
-        y + 45
+        -8 + legOffset,
+        44
     );
 
-    ctx.moveTo(
-        x,
-        y + 32
-    );
+    ctx.moveTo(0, 32);
 
     ctx.lineTo(
-        x + 9 - legMovement,
-        y + 45
+        8 - legOffset,
+        44
     );
 
     ctx.stroke();
 
-    
+    ctx.restore();
+}
+
+// ===============================
+// MOVEMENT
+// ===============================
+
+function movePlayer() {
+
+    player.walking = false;
+
+    if (
+        keys["ArrowRight"] ||
+        keys["d"] ||
+        keys["D"]
+    ) {
+
+        player.x += player.speed;
+
+        player.direction = 1;
+
+        player.walking = true;
+        player.walkTime += 0.25;
+    }
+
+    if (
+        keys["ArrowLeft"] ||
+        keys["a"] ||
+        keys["A"]
+    ) {
+
+        player.x -= player.speed;
+
+        player.direction = -1;
+
+        player.walking = true;
+        player.walkTime += 0.25;
+    }
+
+    // Jump
+    if (
+        (
+            keys["ArrowUp"] ||
+            keys["w"] ||
+            keys["W"] ||
+            keys[" "]
+        ) &&
+        !player.jumping
+    ) {
+
+        player.velocityY = jumpPower;
+        player.jumping = true;
+    }
+
+    player.velocityY += gravity;
+    player.y += player.velocityY;
+
+    // Platform collision
+    let standing = false;
+
+    platforms.forEach(p => {
+
+        if (
+            player.x + player.width > p.x &&
+            player.x < p.x + p.width &&
+            player.y + player.height >= p.y &&
+            player.y + player.height <= p.y + 20 &&
+            player.velocityY >= 0
+        ) {
+
+            player.y =
+                p.y - player.height;
+
+            player.velocityY = 0;
+
+            player.jumping = false;
+
+            standing = true;
+        }
+    });
+
+    if (!standing && player.y < 385) {
+        player.jumping = true;
+    }
+
+    // Camera
+    cameraX = player.x - 150;
+
+    if (cameraX < 0)
+        cameraX = 0;
+
+    if (cameraX > levelLength - 400)
+        cameraX = levelLength - 400;
+
+    // Death
+    if (player.y > canvas.height + 100) {
+
+        gameOver = true;
+    }
+
+    // Don't walk backwards too far
+    if (player.x < 20)
+        player.x = 20;
+
+    // Round complete
+    if (player.x > levelLength + 100) {
+
+        completeRound();
+    }
+}
+
+// ===============================
+// SCORE
+// ===============================
+
+function updateScore() {
+
+    if (!gameOver && !roundComplete) {
+
+        score += 0.02;
+    }
+}
+
+// ===============================
+// ROUND COMPLETE
+// ===============================
+
+function completeRound() {
+
+    if (roundComplete)
+        return;
+
+    roundComplete = true;
+
+    setTimeout(() => {
+
+        round++;
+
+        score += 500;
+
+        levelLength += 500;
+
+        player.x = 80;
+        player.y = 300;
+
+        cameraX = 0;
+
+        gameOver = false;
+        roundComplete = false;
+
+        createLevel();
+        createDecorations();
+
+    }, 2500);
+}
+
+// ===============================
+// UI
+// ===============================
+
+function drawUI() {
+
+    ctx.shadowBlur = 0;
+
+    // Score
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 20px Arial";
+
+    ctx.fillText(
+        "SCORE: " + Math.floor(score),
+        20,
+        30
+    );
+
+    // Round
+    ctx.fillText(
+        "ROUND " + round,
+        20,
+        58
+    );
+
+    // Difficulty
+    ctx.font = "14px Arial";
+
+    ctx.fillStyle = "#ff4de1";
+
+    ctx.fillText(
+        "DIFFICULTY: " +
+        Math.min(round, 10),
+        20,
+        80
+    );
+
+    // Game over
+    if (gameOver) {
+
+        ctx.fillStyle =
+            "rgba(0,0,0,0.78)";
+
+        ctx.fillRect(
+            0,
+            0,
+            canvas.width,
+            canvas.height
+        );
+
+        ctx.textAlign = "center";
+
+        ctx.fillStyle = "#ff2bd6";
+
+        ctx.font = "bold 48px Arial";
+
+        ctx.fillText(
+            "YOU DIED",
+            canvas.width / 2,
+            180
+        );
+
+        ctx.fillStyle = "#ffffff";
+
+        ctx.font = "22px Arial";
+
+        ctx.fillText(
+            "TAP THE SCREEN TO REVIVE",
+            canvas.width / 2,
+            230
+        );
+
+        ctx.font = "18px Arial";
+
+        ctx.fillText(
+            "Score: " + Math.floor(score),
+            canvas.width / 2,
+            270
+        );
+
+        ctx.textAlign = "left";
+    }
+
+    // Round complete
+    if (roundComplete) {
+
+        ctx.fillStyle =
+            "rgba(0,0,0,0.75)";
+
+        ctx.fillRect(
+            0,
+            0,
+            canvas.width,
+            canvas.height
+        );
+
+        ctx.textAlign = "center";
+
+        ctx.fillStyle = "#ff2bd6";
+
+        ctx.font = "bold 42px Arial";
+
+        ctx.fillText(
+            "ROUND COMPLETE",
+            canvas.width / 2,
+            190
+        );
+
+        ctx.fillStyle = "#ffffff";
+
+        ctx.font = "20px Arial";
+
+        ctx.fillText(
+            "GET READY FOR ROUND " +
+            (round + 1),
+            canvas.width / 2,
+            235
+        );
+
+        ctx.fillText(
+            "+500 SCORE",
+            canvas.width / 2,
+            270
+        );
+
+        ctx.textAlign = "left";
+    }
+}
+
+// ===============================
+// RESTART
+// ===============================
+
+function restartGame() {
+
+    gameOver = false;
+    roundComplete = false;
+
+    player.x = 80;
+    player.y = 300;
+    player.velocityY = 0;
+    player.jumping = false;
+
+    cameraX = 0;
+}
+
+// ===============================
+// MAIN LOOP
+// ===============================
+
+function gameLoop() {
+
+    ctx.clearRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+    drawBackground();
+    drawDecorations();
+    drawPlatforms();
+
+    if (!gameOver && !roundComplete) {
+
+        movePlayer();
+        updateScore();
+    }
+
+    drawPlayer();
+    drawUI();
+
+    requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
