@@ -306,3 +306,194 @@ function updatePlayer() {
             player.width;
     }
                 }
+// ==============================
+// DRAW PLATFORM
+// ==============================
+
+function drawPlatform() {
+
+    ctx.fillStyle = "#15121d";
+
+    ctx.fillRect(
+        platform.x,
+        platform.y,
+        platform.width,
+        platform.height
+    );
+
+    ctx.fillStyle = "#ff4fae";
+
+    ctx.fillRect(
+        platform.x,
+        platform.y,
+        platform.width,
+        5
+    );
+}
+
+
+// ==============================
+// DRAW STICKMAN
+// ==============================
+
+function drawPlayer() {
+
+    const x =
+        player.x +
+        player.width / 2;
+
+    const y = player.y;
+
+    ctx.save();
+
+    ctx.translate(x, y);
+
+    ctx.scale(
+        player.direction,
+        1
+    );
+
+    ctx.strokeStyle = "#ffffff";
+
+    ctx.lineWidth = 5;
+
+    ctx.lineCap = "round";
+
+
+    let legMove = 0;
+    let armMove = 0;
+
+
+    if (
+        player.walking &&
+        !player.jumping
+    ) {
+
+        legMove =
+            Math.sin(
+                player.walkTime
+            ) * 8;
+
+        armMove =
+            Math.sin(
+                player.walkTime
+            ) * 6;
+    }
+
+
+    // HEAD
+
+    ctx.beginPath();
+
+    ctx.arc(
+        0,
+        10,
+        10,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.stroke();
+
+
+    // BODY
+
+    ctx.beginPath();
+
+    ctx.moveTo(0, 20);
+
+    ctx.lineTo(0, 40);
+
+    ctx.stroke();
+
+
+    // ARMS
+
+    ctx.beginPath();
+
+    ctx.moveTo(0, 25);
+
+    ctx.lineTo(
+        -14,
+        35 - armMove
+    );
+
+    ctx.moveTo(0, 25);
+
+    ctx.lineTo(
+        14,
+        35 + armMove
+    );
+
+    ctx.stroke();
+
+
+    // LEGS
+
+    ctx.beginPath();
+
+    ctx.moveTo(0, 40);
+
+    ctx.lineTo(
+        -11 - legMove,
+        50
+    );
+
+    ctx.moveTo(0, 40);
+
+    ctx.lineTo(
+        11 + legMove,
+        50
+    );
+
+    ctx.stroke();
+
+
+    ctx.restore();
+}
+
+
+// ==============================
+// DRAW
+// ==============================
+
+function draw() {
+
+    // Temporary background
+
+    ctx.fillStyle = "#09000f";
+
+    ctx.fillRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+    drawPlatform();
+
+    drawPlayer();
+}
+
+
+// ==============================
+// GAME LOOP
+// ==============================
+
+function gameLoop() {
+
+    updatePlayer();
+
+    draw();
+
+    requestAnimationFrame(
+        gameLoop
+    );
+}
+
+
+// ==============================
+// START GAME
+// ==============================
+
+gameLoop();
