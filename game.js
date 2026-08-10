@@ -719,631 +719,140 @@ function updatePlayer() {
 // ========================================
 // BACKGROUND
 // ========================================
-
 function drawBackground() {
 
-    ctx.fillStyle = "#08000d";
+    const sky = ctx.createLinearGradient(
+        0, 0, 0, canvas.height
+    );
+
+    sky.addColorStop(0, "#050008");
+    sky.addColorStop(0.6, "#14001d");
+    sky.addColorStop(1, "#30003a");
+
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+
+    // MOON
+
+    ctx.fillStyle = "#ffd9f5";
+
+    ctx.beginPath();
+    ctx.arc(720, 100, 42, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#09000f";
+
+    ctx.beginPath();
+    ctx.arc(738, 88, 42, 0, Math.PI * 2);
+    ctx.fill();
+
+
+    // STARS
+
+    for (let i = 0; i < 60; i++) {
+
+        let x = (i * 137) % canvas.width;
+        let y = (i * 71) % 320;
+
+        ctx.fillStyle =
+            i % 4 === 0 ? "#ff63c3" : "#ffffff";
+
+        ctx.fillRect(x, y, 2, 2);
+    }
+
+
+    // CASTLE
+
+    ctx.fillStyle = "#0b0012";
+
+    ctx.fillRect(120, 300, 230, 140);
+    ctx.fillRect(80, 250, 65, 190);
+    ctx.fillRect(325, 235, 70, 205);
+
+
+    // CASTLE ROOFS
+
+    ctx.beginPath();
+    ctx.moveTo(75, 250);
+    ctx.lineTo(112, 205);
+    ctx.lineTo(150, 250);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(320, 235);
+    ctx.lineTo(360, 185);
+    ctx.lineTo(400, 235);
+    ctx.closePath();
+    ctx.fill();
+
+
+    // WINDOWS
+
+    ctx.fillStyle = "#ff3dbb";
+
+    ctx.fillRect(105, 280, 10, 20);
+    ctx.fillRect(350, 265, 10, 20);
+
+    ctx.fillRect(180, 330, 12, 18);
+    ctx.fillRect(215, 330, 12, 18);
+    ctx.fillRect(250, 330, 12, 18);
+
+
+    // HILLS
+
+    ctx.fillStyle = "#100018";
+
+    ctx.beginPath();
+
+    ctx.moveTo(0, 400);
+
+    ctx.quadraticCurveTo(
+        130, 320,
+        270, 400
+    );
+
+    ctx.quadraticCurveTo(
+        420, 310,
+        560, 400
+    );
+
+    ctx.quadraticCurveTo(
+        700, 315,
+        900, 395
+    );
+
+    ctx.lineTo(900, 440);
+    ctx.lineTo(0, 440);
+
+    ctx.closePath();
+    ctx.fill();
+
+
+    // NEON HORIZON
+
+    ctx.fillStyle =
+        "rgba(255, 0, 180, 0.12)";
 
     ctx.fillRect(
         0,
-        0,
+        390,
         canvas.width,
-        canvas.height
+        50
     );
 
 
-    // Stars
+    // LEVEL LABEL
 
-    for (
-        let i = 0;
-        i < 60;
-        i++
-    ) {
+    ctx.fillStyle = "#ff63c3";
 
-        const x =
-            (i * 97) %
-            canvas.width;
-
-        const y =
-            (i * 53) %
-            350;
-
-
-        ctx.fillStyle =
-            i % 3 === 0
-                ? "#ff4fae"
-                : "#ffffff";
-
-
-        ctx.globalAlpha = 0.4;
-
-        ctx.fillRect(
-            x,
-            y,
-            2,
-            2
-        );
-
-    }
-
-
-    ctx.globalAlpha = 1;
-
-
-    // Large level number
-
-    ctx.fillStyle =
-        "rgba(255,79,174,0.08)";
-
-    ctx.font =
-        "bold 150px Arial";
-
-    ctx.textAlign =
-        "center";
+    ctx.font = "bold 18px monospace";
 
     ctx.fillText(
-        level,
-        canvas.width / 2,
-        200
-    );
-
-    ctx.textAlign =
-        "left";
-
-}
-
-
-// ========================================
-// PLATFORM
-// ========================================
-
-function drawPlatform() {
-
-    ctx.fillStyle =
-        "#15121d";
-
-    ctx.fillRect(
-        platform.x,
-        platform.y,
-        platform.width,
-        platform.height
-    );
-
-
-    // Neon top edge
-
-    ctx.fillStyle =
-        "#ff4fae";
-
-    ctx.fillRect(
-        platform.x,
-        platform.y,
-        platform.width,
-        5
-    );
-
-}
-
-
-// ========================================
-// SPIKES
-// ========================================
-
-function drawSpikes() {
-
-    for (
-        let i = 0;
-        i < spikes.length;
-        i++
-    ) {
-
-        const spike = spikes[i];
-
-
-        ctx.fillStyle =
-            "#ff1744";
-
-
-        for (
-            let x = spike.x;
-            x <
-            spike.x +
-            spike.width;
-            x += 15
-        ) {
-
-            ctx.beginPath();
-
-            ctx.moveTo(
-                x,
-                spike.y +
-                spike.height
-            );
-
-            ctx.lineTo(
-                x + 7.5,
-                spike.y
-            );
-
-            ctx.lineTo(
-                x + 15,
-                spike.y +
-                spike.height
-            );
-
-            ctx.closePath();
-
-            ctx.fill();
-
-        }
-
-    }
-
-}
-
-
-// ========================================
-// FINISH
-// ========================================
-
-function drawFinish() {
-
-    const finishX =
-        levelData[level].finishX;
-
-
-    // Glow
-
-    ctx.fillStyle =
-        "rgba(255,79,174,0.15)";
-
-    ctx.fillRect(
-        finishX - 15,
-        100,
-        60,
-        340
-    );
-
-
-    // Gate
-
-    ctx.strokeStyle =
-        "#ff4fae";
-
-    ctx.lineWidth = 5;
-
-    ctx.strokeRect(
-        finishX,
-        320,
-        40,
-        120
-    );
-
-
-    // Top
-
-    ctx.fillStyle =
-        "#ff4fae";
-
-    ctx.fillRect(
-        finishX - 5,
-        315,
-        50,
-        8
-    );
-
-
-    // Label
-
-    ctx.fillStyle =
-        "#ffffff";
-
-    ctx.font =
-        "14px monospace";
-
-    ctx.textAlign =
-        "center";
-
-    ctx.fillText(
-        "FINISH",
-        finishX + 20,
-        300
-    );
-
-    ctx.textAlign =
-        "left";
-
-}
-
-
-// ========================================
-// STICKMAN
-// ========================================
-
-function drawPlayer() {
-
-    // Invincibility blinking
-
-    if (
-        invincible &&
-        Math.floor(
-            invincibleTimer / 6
-        ) % 2 === 0
-    ) {
-
-        return;
-
-    }
-
-
-    const centerX =
-        player.x +
-        player.width / 2;
-
-    const topY =
-        player.y;
-
-
-    ctx.save();
-
-
-    ctx.translate(
-        centerX,
-        topY
-    );
-
-
-    ctx.scale(
-        player.direction,
-        1
-    );
-
-
-    ctx.strokeStyle =
-        "#ffffff";
-
-    ctx.lineWidth = 5;
-
-    ctx.lineCap =
-        "round";
-
-
-    // Walking movement
-
-    let legMove = 0;
-
-    let armMove = 0;
-
-
-    if (
-        player.walking &&
-        !player.jumping
-    ) {
-
-        legMove =
-            Math.sin(
-                player.walkTime
-            ) * 9;
-
-        armMove =
-            Math.sin(
-                player.walkTime
-            ) * 7;
-
-    }
-
-
-    // HEAD
-
-    ctx.beginPath();
-
-    ctx.arc(
-        0,
-        10,
-        10,
-        0,
-        Math.PI * 2
-    );
-
-    ctx.stroke();
-
-
-    // BODY
-
-    ctx.beginPath();
-
-    ctx.moveTo(
-        0,
-        20
-    );
-
-    ctx.lineTo(
-        0,
-        40
-    );
-
-    ctx.stroke();
-
-
-    // ARMS
-
-    ctx.beginPath();
-
-    ctx.moveTo(
-        0,
-        25
-    );
-
-    ctx.lineTo(
-        -14,
-        35 - armMove
-    );
-
-
-    ctx.moveTo(
-        0,
-        25
-    );
-
-    ctx.lineTo(
-        14,
-        35 + armMove
-    );
-
-    ctx.stroke();
-
-
-    // LEGS
-
-    ctx.beginPath();
-
-    ctx.moveTo(
-        0,
-        40
-    );
-
-    ctx.lineTo(
-        -11 - legMove,
-        55
-    );
-
-
-    ctx.moveTo(
-        0,
-        40
-    );
-
-    ctx.lineTo(
-        11 + legMove,
-        55
-    );
-
-    ctx.stroke();
-
-
-    ctx.restore();
-
-}
-
-
-// ========================================
-// HEARTS
-// ========================================
-
-function drawHearts() {
-
-    ctx.font =
-        "30px Arial";
-
-
-    let text = "";
-
-
-    for (
-        let i = 0;
-        i < 3;
-        i++
-    ) {
-
-        if (i < hearts) {
-
-            text += "♥ ";
-
-        } else {
-
-            text += "♡ ";
-
-        }
-
-    }
-
-
-    ctx.fillStyle =
-        "#ff4fae";
-
-
-    ctx.fillText(
-        text,
+        "LEVEL 1",
         20,
-        38
+        75
     );
 
 }
-
-
-// ========================================
-// LEVEL COMPLETE
-// ========================================
-
-function drawLevelComplete() {
-
-    if (!levelComplete) return;
-
-
-    ctx.fillStyle =
-        "rgba(5,0,8,0.9)";
-
-    ctx.fillRect(
-        0,
-        0,
-        canvas.width,
-        canvas.height
-    );
-
-
-    ctx.textAlign =
-        "center";
-
-
-    ctx.fillStyle =
-        "#ff4fae";
-
-    ctx.font =
-        "bold 52px Georgia";
-
-    ctx.fillText(
-        "LEVEL COMPLETE",
-        canvas.width / 2,
-        210
-    );
-
-
-    ctx.fillStyle =
-        "#ffffff";
-
-    ctx.font =
-        "20px monospace";
-
-
-    if (level < 3) {
-
-        ctx.fillText(
-            "TAP TO CONTINUE",
-            canvas.width / 2,
-            270
-        );
-
-    } else {
-
-        ctx.fillText(
-            "TAP TO RESTART",
-            canvas.width / 2,
-            270
-        );
-
-    }
-
-
-    ctx.textAlign =
-        "left";
-
-}
-
-
-// ========================================
-// GAME OVER
-// ========================================
-
-function drawGameOver() {
-
-    if (!gameOver) return;
-
-
-    ctx.fillStyle =
-        "rgba(0,0,0,0.9)";
-
-    ctx.fillRect(
-        0,
-        0,
-        canvas.width,
-        canvas.height
-    );
-
-
-    ctx.textAlign =
-        "center";
-
-
-    ctx.fillStyle =
-        "#ff4fae";
-
-    ctx.font =
-        "bold 52px Georgia";
-
-    ctx.fillText(
-        "GAME OVER",
-        canvas.width / 2,
-        210
-    );
-
-
-    ctx.fillStyle =
-        "#ffffff";
-
-    ctx.font =
-        "20px monospace";
-
-    ctx.fillText(
-        "TAP TO RETRY LEVEL " + level,
-        canvas.width / 2,
-        270
-    );
-
-
-    ctx.textAlign =
-        "left";
-
-}
-
-
-// ========================================
-// DRAW
-// ========================================
-
-function draw() {
-
-    drawBackground();
-
-    drawPlatform();
-
-    drawSpikes();
-
-    drawFinish();
-
-    drawPlayer();
-
-    drawHearts();
-
-    drawLevelComplete();
-
-    drawGameOver();
-
-}
-
-
-// ========================================
-// GAME LOOP
-// ========================================
-
-function gameLoop() {
-
-    updatePlayer();
-
-    draw();
-
-    requestAnimationFrame(
-        gameLoop
-    );
-
-}
-
-
-// ========================================
-// START
-// ========================================
-
-loadLevel();
-
-resetPlayer();
-
-gameLoop();
