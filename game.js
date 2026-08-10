@@ -1,19 +1,17 @@
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-let W = 900;
-let H = 500;
-
-canvas.width = W;
-canvas.height = H;
+canvas.width = 900;
+canvas.height = 500;
 
 
 // =============================
-// GAME STATE
+// GAME
 // =============================
 
 let hearts = 3;
 let gameOver = false;
+
 let invincible = false;
 let invincibleTimer = 0;
 
@@ -30,6 +28,7 @@ const keys = {};
 // =============================
 
 const player = {
+
     x: 100,
     y: 350,
 
@@ -40,7 +39,14 @@ const player = {
 
     velocityY: 0,
 
-    jumping: false
+    jumping: false,
+
+    // Walking animation
+    walking: false,
+    walkTime: 0,
+
+    // Direction
+    direction: 1
 };
 
 
@@ -57,11 +63,13 @@ const jumpPower = -12;
 // =============================
 
 const platform = {
+
     x: 0,
     y: 440,
 
     width: 900,
     height: 60
+
 };
 
 
@@ -70,6 +78,7 @@ const platform = {
 // =============================
 
 const spikes = [
+
     {
         x: 450,
         y: 415,
@@ -83,6 +92,7 @@ const spikes = [
         width: 60,
         height: 25
     }
+
 ];
 
 
@@ -90,27 +100,35 @@ const spikes = [
 // KEYBOARD
 // =============================
 
-document.addEventListener("keydown", function(event) {
+document.addEventListener(
+    "keydown",
+    function(event) {
 
-    keys[event.key] = true;
+        keys[event.key] = true;
 
-    if (
-        event.key === "ArrowLeft" ||
-        event.key === "ArrowRight" ||
-        event.key === "ArrowUp" ||
-        event.key === " "
-    ) {
-        event.preventDefault();
+        if (
+            event.key === "ArrowLeft" ||
+            event.key === "ArrowRight" ||
+            event.key === "ArrowUp" ||
+            event.key === " "
+        ) {
+
+            event.preventDefault();
+
+        }
+
     }
+);
 
-});
 
+document.addEventListener(
+    "keyup",
+    function(event) {
 
-document.addEventListener("keyup", function(event) {
+        keys[event.key] = false;
 
-    keys[event.key] = false;
-
-});
+    }
+);
 
 
 // =============================
@@ -119,7 +137,8 @@ document.addEventListener("keyup", function(event) {
 
 function setupButton(id, key) {
 
-    const button = document.getElementById(id);
+    const button =
+        document.getElementById(id);
 
     if (!button) return;
 
@@ -175,27 +194,50 @@ function setupButton(id, key) {
         "mouseleave",
         release
     );
+
 }
 
 
-setupButton("left", "ArrowLeft");
-setupButton("right", "ArrowRight");
-setupButton("jump", "ArrowUp");
+// LEFT
+
+setupButton(
+    "left",
+    "ArrowLeft"
+);
+
+
+// RIGHT
+
+setupButton(
+    "right",
+    "ArrowRight"
+);
+
+
+// JUMP
+
+setupButton(
+    "jump",
+    "ArrowUp"
+);
 
 
 // =============================
-// SCREEN TAP
+// TAP TO REVIVE
 // =============================
 
-canvas.addEventListener("click", function() {
+canvas.addEventListener(
+    "click",
+    function() {
 
-    if (gameOver) {
+        if (gameOver) {
 
-        restartGame();
+            restartGame();
+
+        }
 
     }
-
-});
+);
 
 
 // =============================
@@ -214,6 +256,12 @@ function restartGame() {
     player.velocityY = 0;
 
     player.jumping = false;
+
+    player.walking = false;
+
+    player.walkTime = 0;
+
+    player.direction = 1;
 
     invincible = false;
 
@@ -247,13 +295,20 @@ function loseHeart() {
     }
 
 
+    // Respawn
+
     player.x = 100;
+
     player.y = 350;
 
     player.velocityY = 0;
 
     player.jumping = false;
 
+    player.walking = false;
+
+
+    // Temporary protection
 
     invincible = true;
 
@@ -271,7 +326,14 @@ function updatePlayer() {
     if (gameOver) return;
 
 
-    // LEFT
+    // Reset walking
+
+    player.walking = false;
+
+
+    // =========================
+    // MOVE LEFT
+    // =========================
 
     if (
         keys["ArrowLeft"] ||
@@ -280,10 +342,16 @@ function updatePlayer() {
 
         player.x -= player.speed;
 
+        player.walking = true;
+
+        player.direction = -1;
+
     }
 
 
-    // RIGHT
+    // =========================
+    // MOVE RIGHT
+    // =========================
 
     if (
         keys["ArrowRight"] ||
@@ -292,10 +360,16 @@ function updatePlayer() {
 
         player.x += player.speed;
 
+        player.walking = true;
+
+        player.direction = 1;
+
     }
 
 
+    // =========================
     // JUMP
+    // =========================
 
     if (
         (
@@ -314,22 +388,50 @@ function updatePlayer() {
     }
 
 
+    // =========================
+    // WALK ANIMATION
+    // =========================
+
+    if (
+        player.walking &&
+        !player.jumping
+    ) {
+
+        player.walkTime += 0.25;
+
+    }
+
+
+    // =========================
     // GRAVITY
+    // =========================
 
     player.velocityY += gravity;
 
     player.y += player.velocityY;
 
 
-    // PLATFORM COLLISION
+    // =========================
+    // PLATFORM
+    // =========================
 
     if (
-        player.y + player.height >= platform.y
+        player.y + player.height >=
+            platform.y
+
         &&
-        player.x + player.width > platform.x
+
+        player.x + player.width >
+            platform.x
+
         &&
-        player.x < platform.x + platform.width
+
+        player.x <
+            platform.x +
+            platform.width
+
         &&
+
         player.velocityY >= 0
     ) {
 
@@ -344,7 +446,9 @@ function updatePlayer() {
     }
 
 
-    // SPIKE COLLISION
+    // =========================
+    // SPIKES
+    // =========================
 
     for (
         let i = 0;
@@ -357,15 +461,25 @@ function updatePlayer() {
 
         if (
             player.x <
-                spike.x + spike.width
+                spike.x +
+                spike.width
+
             &&
-            player.x + player.width >
+
+            player.x +
+                player.width >
                 spike.x
+
             &&
+
             player.y <
-                spike.y + spike.height
+                spike.y +
+                spike.height
+
             &&
-            player.y + player.height >
+
+            player.y +
+                player.height >
                 spike.y
         ) {
 
@@ -376,7 +490,9 @@ function updatePlayer() {
     }
 
 
+    // =========================
     // FALLING
+    // =========================
 
     if (
         player.y >
@@ -388,7 +504,9 @@ function updatePlayer() {
     }
 
 
-    // KEEP PLAYER ON SCREEN
+    // =========================
+    // SCREEN LIMITS
+    // =========================
 
     if (player.x < 0) {
 
@@ -399,7 +517,8 @@ function updatePlayer() {
 
     if (
         player.x >
-        canvas.width - player.width
+        canvas.width -
+        player.width
     ) {
 
         player.x =
@@ -409,7 +528,9 @@ function updatePlayer() {
     }
 
 
-    // INVINCIBILITY TIMER
+    // =========================
+    // INVINCIBILITY
+    // =========================
 
     if (invincible) {
 
@@ -427,7 +548,7 @@ function updatePlayer() {
 
 
 // =============================
-// DRAW BACKGROUND
+// BACKGROUND
 // =============================
 
 function drawBackground() {
@@ -442,7 +563,7 @@ function drawBackground() {
     );
 
 
-    // stars
+    // Stars
 
     for (
         let i = 0;
@@ -483,7 +604,7 @@ function drawBackground() {
 
 
 // =============================
-// DRAW PLATFORM
+// PLATFORM
 // =============================
 
 function drawPlatform() {
@@ -511,7 +632,7 @@ function drawPlatform() {
 
 
 // =============================
-// DRAW SPIKES
+// SPIKES
 // =============================
 
 function drawSpikes() {
@@ -530,7 +651,9 @@ function drawSpikes() {
 
         for (
             let x = spike.x;
-            x < spike.x + spike.width;
+            x <
+            spike.x +
+            spike.width;
             x += 15
         ) {
 
@@ -538,7 +661,8 @@ function drawSpikes() {
 
             ctx.moveTo(
                 x,
-                spike.y + spike.height
+                spike.y +
+                spike.height
             );
 
             ctx.lineTo(
@@ -548,7 +672,8 @@ function drawSpikes() {
 
             ctx.lineTo(
                 x + 15,
-                spike.y + spike.height
+                spike.y +
+                spike.height
             );
 
             ctx.closePath();
@@ -563,16 +688,18 @@ function drawSpikes() {
 
 
 // =============================
-// DRAW PLAYER
+// STICKMAN
 // =============================
 
 function drawPlayer() {
 
-    // flashing after hit
+    // Blink while invincible
 
     if (
         invincible &&
-        Math.floor(invincibleTimer / 6) % 2 === 0
+        Math.floor(
+            invincibleTimer / 6
+        ) % 2 === 0
     ) {
 
         return;
@@ -588,20 +715,66 @@ function drawPlayer() {
         player.y;
 
 
-    ctx.strokeStyle = "#ffffff";
+    ctx.save();
+
+
+    // Face movement direction
+
+    ctx.translate(
+        centerX,
+        topY
+    );
+
+    ctx.scale(
+        player.direction,
+        1
+    );
+
+
+    ctx.strokeStyle =
+        "#ffffff";
 
     ctx.lineWidth = 5;
 
-    ctx.lineCap = "round";
+    ctx.lineCap =
+        "round";
 
 
+    // =========================
+    // WALKING MOTION
+    // =========================
+
+    let legMove = 0;
+    let armMove = 0;
+
+
+    if (
+        player.walking &&
+        !player.jumping
+    ) {
+
+        legMove =
+            Math.sin(
+                player.walkTime
+            ) * 9;
+
+        armMove =
+            Math.sin(
+                player.walkTime
+            ) * 7;
+
+    }
+
+
+    // =========================
     // HEAD
+    // =========================
 
     ctx.beginPath();
 
     ctx.arc(
-        centerX,
-        topY + 10,
+        0,
+        10,
         10,
         0,
         Math.PI * 2
@@ -610,90 +783,117 @@ function drawPlayer() {
     ctx.stroke();
 
 
+    // =========================
     // BODY
+    // =========================
 
     ctx.beginPath();
 
     ctx.moveTo(
-        centerX,
-        topY + 20
+        0,
+        20
     );
 
     ctx.lineTo(
-        centerX,
-        topY + 40
+        0,
+        40
     );
 
     ctx.stroke();
 
 
+    // =========================
     // ARMS
+    // =========================
 
     ctx.beginPath();
 
+
+    // Back arm
+
     ctx.moveTo(
-        centerX,
-        topY + 25
+        0,
+        25
     );
 
     ctx.lineTo(
-        centerX - 14,
-        topY + 35
+        -14,
+        35 -
+        armMove
     );
 
 
+    // Front arm
+
     ctx.moveTo(
-        centerX,
-        topY + 25
+        0,
+        25
     );
 
     ctx.lineTo(
-        centerX + 14,
-        topY + 35
+        14,
+        35 +
+        armMove
     );
+
 
     ctx.stroke();
 
 
+    // =========================
     // LEGS
+    // =========================
 
     ctx.beginPath();
 
+
+    // Back leg
+
     ctx.moveTo(
-        centerX,
-        topY + 40
+        0,
+        40
     );
 
     ctx.lineTo(
-        centerX - 11,
-        topY + 55
+        -11 -
+        legMove,
+        55
     );
 
 
+    // Front leg
+
     ctx.moveTo(
-        centerX,
-        topY + 40
+        0,
+        40
     );
 
     ctx.lineTo(
-        centerX + 11,
-        topY + 55
+        11 +
+        legMove,
+        55
     );
+
 
     ctx.stroke();
+
+
+    ctx.restore();
 
 }
 
 
 // =============================
-// DRAW HEARTS
+// HEARTS
 // =============================
 
 function drawHearts() {
 
-    ctx.font = "30px Arial";
+    ctx.font =
+        "30px Arial";
 
-    let heartsText = "";
+
+    let text = "";
 
 
     for (
@@ -704,21 +904,23 @@ function drawHearts() {
 
         if (i < hearts) {
 
-            heartsText += "♥ ";
+            text += "♥ ";
 
         } else {
 
-            heartsText += "♡ ";
+            text += "♡ ";
 
         }
 
     }
 
 
-    ctx.fillStyle = "#ff4fae";
+    ctx.fillStyle =
+        "#ff4fae";
+
 
     ctx.fillText(
-        heartsText,
+        text,
         20,
         38
     );
@@ -727,7 +929,7 @@ function drawHearts() {
 
 
 // =============================
-// GAME OVER SCREEN
+// GAME OVER
 // =============================
 
 function drawGameOver() {
@@ -747,10 +949,13 @@ function drawGameOver() {
     );
 
 
-    ctx.textAlign = "center";
+    ctx.textAlign =
+        "center";
 
 
-    ctx.fillStyle = "#ff4fae";
+    ctx.fillStyle =
+        "#ff4fae";
+
 
     ctx.font =
         "bold 52px Georgia";
@@ -763,7 +968,9 @@ function drawGameOver() {
     );
 
 
-    ctx.fillStyle = "#ffffff";
+    ctx.fillStyle =
+        "#ffffff";
+
 
     ctx.font =
         "20px monospace";
@@ -776,7 +983,9 @@ function drawGameOver() {
     );
 
 
-    ctx.fillStyle = "#ff4fae";
+    ctx.fillStyle =
+        "#ff4fae";
+
 
     ctx.font =
         "28px Arial";
@@ -789,13 +998,14 @@ function drawGameOver() {
     );
 
 
-    ctx.textAlign = "left";
+    ctx.textAlign =
+        "left";
 
 }
 
 
 // =============================
-// DRAW EVERYTHING
+// DRAW
 // =============================
 
 function draw() {
