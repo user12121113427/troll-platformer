@@ -1,162 +1,980 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="UTF-8">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0, user-scalable=no"
-    >
+<title>Goth Troll Platformer</title>
 
-    <title>Troll Platformer</title>
+<style>
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
 
-    <style>
-        * {
-            box-sizing: border-box;
-        }
+body {
+    background: #050208;
+    overflow: hidden;
+    touch-action: none;
+    font-family: Arial, sans-serif;
+}
 
-        html,
-        body {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background: #111;
-            touch-action: none;
-            user-select: none;
-        }
+#game {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+    background: #12091c;
+}
 
-        body {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
+.controls {
+    position: fixed;
+    bottom: 20px;
+    left: 0;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    padding: 0 25px;
+    pointer-events: none;
+}
 
-        #game {
-            display: block;
-            width: 100vw;
-            height: 56.25vw;
-            max-height: 100vh;
-            touch-action: none;
-        }
+.leftControls,
+.rightControls {
+    display: flex;
+    gap: 12px;
+    pointer-events: auto;
+}
 
-        /* MOBILE CONTROLS */
+button {
+    width: 70px;
+    height: 70px;
+    border-radius: 20px;
+    border: 2px solid #d45cff;
+    background: rgba(20, 5, 30, 0.8);
+    color: white;
+    font-size: 30px;
+    box-shadow: 0 0 15px #a62cff;
+    touch-action: none;
+}
 
-        #controls {
-            position: fixed;
-            left: 0;
-            right: 0;
-            bottom: 18px;
-            height: 90px;
-            z-index: 9999;
+button:active {
+    background: #6d2490;
+    transform: scale(0.94);
+}
 
-            pointer-events: none;
-        }
-
-        .control {
-            position: absolute;
-
-            width: 72px;
-            height: 72px;
-
-            border: 3px solid rgba(255, 255, 255, 0.8);
-            border-radius: 18px;
-
-            background: rgba(20, 20, 30, 0.65);
-
-            color: white;
-            font-size: 32px;
-            font-weight: bold;
-
-            display: flex;
-            justify-content: center;
-            align-items: center;
-
-            pointer-events: auto;
-            touch-action: none;
-
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        /* LEFT + RIGHT TOGETHER */
-
-        #left {
-            left: 20px;
-        }
-
-        #right {
-            left: 105px;
-        }
-
-        /* JUMP ALONE ON RIGHT */
-
-        #jump {
-            right: 25px;
-        }
-
-        .control:active {
-            background: rgba(255, 255, 255, 0.35);
-            transform: scale(0.92);
-        }
-
-        /* Make buttons slightly smaller on very small screens */
-
-        @media (max-width: 400px) {
-            .control {
-                width: 64px;
-                height: 64px;
-                font-size: 28px;
-            }
-
-            #left {
-                left: 15px;
-            }
-
-            #right {
-                left: 90px;
-            }
-
-            #jump {
-                right: 15px;
-            }
-        }
-    </style>
+#jump {
+    width: 85px;
+}
+</style>
 </head>
 
 <body>
 
-    <canvas id="game"></canvas>
+<canvas id="game"></canvas>
 
-    <div id="controls">
+<div class="controls">
 
-        <button
-            class="control"
-            id="left"
-            aria-label="Move left"
-        >
-            ←
-        </button>
-
-        <button
-            class="control"
-            id="right"
-            aria-label="Move right"
-        >
-            →
-        </button>
-
-        <button
-            class="control"
-            id="jump"
-            aria-label="Jump"
-        >
-            ↑
-        </button>
-
+    <div class="leftControls">
+        <button id="left">←</button>
+        <button id="right">→</button>
     </div>
 
-    <script src="game.js?v=2"></script>
+    <div class="rightControls">
+        <button id="jump">↑</button>
+    </div>
+
+</div>
+
+<script>
+
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+let W = 800;
+let H = 450;
+
+function resize() {
+    canvas.width = W;
+    canvas.height = H;
+}
+
+resize();
+
+
+// ================================
+// GAME
+// ================================
+
+let round = 1;
+let score = 0;
+let best = 0;
+
+let dead = false;
+let finished = false;
+
+let camera = 0;
+
+const player = {
+    x: 80,
+    y: 300,
+    w: 25,
+    h: 45,
+    vx: 0,
+    vy: 0,
+    speed: 5,
+    jumping: false,
+    walk: 0
+};
+
+const gravity = 0.6;
+const jumpPower = -11;
+
+let left = false;
+let right = false;
+
+let platforms = [];
+let spikes = [];
+
+let finishX = 0;
+
+
+// ================================
+// BUTTONS
+// ================================
+
+function hold(button, press, release) {
+
+    button.addEventListener("touchstart", e => {
+        e.preventDefault();
+        press();
+    });
+
+    button.addEventListener("touchend", e => {
+        e.preventDefault();
+        release();
+    });
+
+    button.addEventListener("mousedown", press);
+    button.addEventListener("mouseup", release);
+}
+
+hold(
+    document.getElementById("left"),
+    () => left = true,
+    () => left = false
+);
+
+hold(
+    document.getElementById("right"),
+    () => right = true,
+    () => right = false
+);
+
+document.getElementById("jump").addEventListener("touchstart", e => {
+    e.preventDefault();
+    jump();
+});
+
+document.getElementById("jump").addEventListener("mousedown", jump);
+
+
+// ================================
+// KEYBOARD
+// ================================
+
+document.addEventListener("keydown", e => {
+
+    if (e.key === "ArrowLeft") left = true;
+    if (e.key === "ArrowRight") right = true;
+
+    if (
+        e.key === "ArrowUp" ||
+        e.key === " "
+    ) {
+        jump();
+    }
+
+    if (e.key === "r" && dead) {
+        restart();
+    }
+});
+
+document.addEventListener("keyup", e => {
+
+    if (e.key === "ArrowLeft") left = false;
+    if (e.key === "ArrowRight") right = false;
+});
+
+
+// ================================
+// JUMP
+// ================================
+
+function jump() {
+
+    if (dead) {
+        restart();
+        return;
+    }
+
+    if (finished) {
+        nextRound();
+        return;
+    }
+
+    if (!player.jumping) {
+
+        player.vy = jumpPower;
+        player.jumping = true;
+    }
+}
+
+
+// ================================
+// LEVEL
+// ================================
+
+function makeLevel() {
+
+    platforms = [];
+    spikes = [];
+
+    let x = 0;
+
+    platforms.push({
+        x: 0,
+        y: 380,
+        w: 600,
+        h: 70
+    });
+
+    x = 650;
+
+    let amount = 6 + round;
+
+    for (let i = 0; i < amount; i++) {
+
+        let width =
+            Math.max(230 - round * 5, 130);
+
+        platforms.push({
+            x: x,
+            y: 380,
+            w: width,
+            h: 70
+        });
+
+        if (Math.random() < 0.35 + round * 0.03) {
+
+            spikes.push({
+                x: x + width / 2,
+                y: 360,
+                w: 35,
+                h: 20
+            });
+        }
+
+        x += width + 100 + round * 8;
+    }
+
+    finishX = x;
+
+    platforms.push({
+        x: x,
+        y: 380,
+        w: 450,
+        h: 70
+    });
+}
+
+
+// ================================
+// UPDATE
+// ================================
+
+function update() {
+
+    if (dead || finished) return;
+
+    if (left) {
+
+        player.x -= player.speed;
+        player.walk += 0.25;
+    }
+
+    if (right) {
+
+        player.x += player.speed;
+        player.walk += 0.25;
+    }
+
+    player.vy += gravity;
+    player.y += player.vy;
+
+    player.jumping = true;
+
+    for (const p of platforms) {
+
+        if (
+            player.x + player.w > p.x &&
+            player.x < p.x + p.w &&
+            player.y + player.h >= p.y &&
+            player.y + player.h <= p.y + 25 &&
+            player.vy >= 0
+        ) {
+
+            player.y = p.y - player.h;
+            player.vy = 0;
+            player.jumping = false;
+        }
+    }
+
+    for (const s of spikes) {
+
+        if (
+            player.x < s.x + s.w &&
+            player.x + player.w > s.x &&
+            player.y + player.h > s.y &&
+            player.y < s.y + s.h
+        ) {
+
+            die();
+        }
+    }
+
+    if (player.y > 500) {
+        die();
+    }
+
+    if (player.x > finishX) {
+        finished = true;
+    }
+
+    camera = player.x - 200;
+
+    if (camera < 0) camera = 0;
+
+    score = Math.max(
+        score,
+        Math.floor(player.x / 10)
+    );
+
+    if (score > best) best = score;
+}
+
+
+// ================================
+// DEATH
+// ================================
+
+function die() {
+    dead = true;
+}
+
+
+// ================================
+// RESTART
+// ================================
+
+function restart() {
+
+    player.x = 80;
+    player.y = 300;
+    player.vy = 0;
+
+    camera = 0;
+
+    dead = false;
+    finished = false;
+
+    makeLevel();
+}
+
+
+// ================================
+// NEXT ROUND
+// ================================
+
+function nextRound() {
+
+    round++;
+
+    player.speed =
+        Math.min(5 + round * 0.25, 8);
+
+    player.x = 80;
+    player.y = 300;
+    player.vy = 0;
+
+    camera = 0;
+
+    finished = false;
+    dead = false;
+
+    makeLevel();
+}
+
+
+// ================================
+// BACKGROUND
+// ================================
+
+function drawBackground() {
+
+    let gradient =
+        ctx.createLinearGradient(
+            0,
+            0,
+            0,
+            H
+        );
+
+    gradient.addColorStop(
+        0,
+        "#090313"
+    );
+
+    gradient.addColorStop(
+        0.5,
+        "#241039"
+    );
+
+    gradient.addColorStop(
+        1,
+        "#08030d"
+    );
+
+    ctx.fillStyle = gradient;
+
+    ctx.fillRect(
+        0,
+        0,
+        W,
+        H
+    );
+
+
+    // MOON
+
+    ctx.shadowColor = "#d45cff";
+    ctx.shadowBlur = 30;
+
+    ctx.fillStyle = "#eee4ff";
+
+    ctx.beginPath();
+
+    ctx.arc(
+        650,
+        90,
+        45,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fill();
+
+    ctx.shadowBlur = 0;
+
+
+    // STARS
+
+    for (let i = 0; i < 70; i++) {
+
+        let x =
+            (i * 127) % W;
+
+        let y =
+            (i * 71) % 270;
+
+        ctx.fillStyle =
+            "#ffffff";
+
+        ctx.fillRect(
+            x,
+            y,
+            2,
+            2
+        );
+    }
+
+
+    // GOTHIC BUILDINGS
+
+    ctx.fillStyle = "#08040c";
+
+    for (let i = 0; i < 12; i++) {
+
+        let x =
+            i * 80 -
+            (camera * 0.15 % 80);
+
+        let h =
+            70 +
+            (i * 37 % 100);
+
+        ctx.fillRect(
+            x,
+            380 - h,
+            65,
+            h
+        );
+
+        ctx.beginPath();
+
+        ctx.moveTo(
+            x + 32,
+            380 - h - 40
+        );
+
+        ctx.lineTo(
+            x + 5,
+            380 - h
+        );
+
+        ctx.lineTo(
+            x + 60,
+            380 - h
+        );
+
+        ctx.fill();
+    }
+}
+
+
+// ================================
+// PLATFORMS
+// ================================
+
+function drawPlatforms() {
+
+    for (const p of platforms) {
+
+        let x = p.x - camera;
+
+        ctx.fillStyle =
+            "#110c18";
+
+        ctx.fillRect(
+            x,
+            p.y,
+            p.w,
+            p.h
+        );
+
+        ctx.fillStyle =
+            "#d45cff";
+
+        ctx.shadowColor =
+            "#d45cff";
+
+        ctx.shadowBlur = 10;
+
+        ctx.fillRect(
+            x,
+            p.y,
+            p.w,
+            5
+        );
+
+        ctx.shadowBlur = 0;
+    }
+}
+
+
+// ================================
+// SPIKES
+// ================================
+
+function drawSpikes() {
+
+    for (const s of spikes) {
+
+        let x =
+            s.x - camera;
+
+        ctx.fillStyle =
+            "#ff197f";
+
+        ctx.shadowColor =
+            "#ff197f";
+
+        ctx.shadowBlur = 15;
+
+        ctx.beginPath();
+
+        ctx.moveTo(
+            x,
+            s.y + s.h
+        );
+
+        ctx.lineTo(
+            x + s.w / 2,
+            s.y
+        );
+
+        ctx.lineTo(
+            x + s.w,
+            s.y + s.h
+        );
+
+        ctx.fill();
+
+        ctx.shadowBlur = 0;
+    }
+}
+
+
+// ================================
+// STICKMAN
+// ================================
+
+function drawPlayer() {
+
+    let x =
+        player.x - camera + 12;
+
+    let y =
+        player.y;
+
+    let movement =
+        Math.sin(player.walk) * 8;
+
+    ctx.strokeStyle =
+        "#ffffff";
+
+    ctx.lineWidth = 5;
+
+    ctx.lineCap = "round";
+
+    ctx.shadowColor =
+        "#ffffff";
+
+    ctx.shadowBlur = 12;
+
+
+    // HEAD
+
+    ctx.beginPath();
+
+    ctx.arc(
+        x,
+        y + 8,
+        9,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.stroke();
+
+
+    // BODY
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+        x,
+        y + 17
+    );
+
+    ctx.lineTo(
+        x,
+        y + 32
+    );
+
+    ctx.stroke();
+
+
+    // ARMS
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+        x,
+        y + 20
+    );
+
+    ctx.lineTo(
+        x - 13,
+        y + 28 + movement
+    );
+
+    ctx.moveTo(
+        x,
+        y + 20
+    );
+
+    ctx.lineTo(
+        x + 13,
+        y + 28 - movement
+    );
+
+    ctx.stroke();
+
+
+    // LEGS
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+        x,
+        y + 32
+    );
+
+    ctx.lineTo(
+        x - 9 + movement,
+        y + 45
+    );
+
+    ctx.moveTo(
+        x,
+        y + 32
+    );
+
+    ctx.lineTo(
+        x + 9 - movement,
+        y + 45
+    );
+
+    ctx.stroke();
+
+    ctx.shadowBlur = 0;
+}
+
+
+// ================================
+// UI
+// ================================
+
+function drawUI() {
+
+    ctx.fillStyle = "#ffffff";
+
+    ctx.font =
+        "bold 20px Arial";
+
+    ctx.fillText(
+        "SCORE: " + score,
+        20,
+        30
+    );
+
+    ctx.fillStyle =
+        "#d45cff";
+
+    ctx.font =
+        "15px Arial";
+
+    ctx.fillText(
+        "BEST: " + best,
+        20,
+        52
+    );
+
+    ctx.textAlign =
+        "center";
+
+    ctx.fillStyle =
+        "#ffffff";
+
+    ctx.font =
+        "bold 22px Arial";
+
+    ctx.fillText(
+        "ROUND " + round,
+        W / 2,
+        30
+    );
+
+    ctx.textAlign =
+        "left";
+}
+
+
+// ================================
+// DEATH SCREEN
+// ================================
+
+function drawDeath() {
+
+    if (!dead) return;
+
+    ctx.fillStyle =
+        "rgba(0,0,0,0.8)";
+
+    ctx.fillRect(
+        0,
+        0,
+        W,
+        H
+    );
+
+    ctx.textAlign =
+        "center";
+
+    ctx.fillStyle =
+        "#ff3d91";
+
+    ctx.font =
+        "bold 50px Arial";
+
+    ctx.fillText(
+        "YOU DIED",
+        W / 2,
+        190
+    );
+
+    ctx.fillStyle =
+        "#ffffff";
+
+    ctx.font =
+        "20px Arial";
+
+    ctx.fillText(
+        "TAP THE SCREEN TO REVIVE",
+        W / 2,
+        245
+    );
+
+    ctx.textAlign =
+        "left";
+}
+
+
+// ================================
+// ROUND COMPLETE
+// ================================
+
+function drawFinished() {
+
+    if (!finished) return;
+
+    ctx.fillStyle =
+        "rgba(0,0,0,0.8)";
+
+    ctx.fillRect(
+        0,
+        0,
+        W,
+        H
+    );
+
+    ctx.textAlign =
+        "center";
+
+    ctx.fillStyle =
+        "#d45cff";
+
+    ctx.font =
+        "bold 42px Arial";
+
+    ctx.fillText(
+        "ROUND COMPLETE",
+        W / 2,
+        180
+    );
+
+    ctx.fillStyle =
+        "#ffffff";
+
+    ctx.font =
+        "20px Arial";
+
+    ctx.fillText(
+        "SCORE: " + score,
+        W / 2,
+        225
+    );
+
+    ctx.fillText(
+        "TAP TO START ROUND " + (round + 1),
+        W / 2,
+        270
+    );
+
+    ctx.textAlign =
+        "left";
+}
+
+
+// ================================
+// TAP TO REVIVE
+// ================================
+
+canvas.addEventListener(
+    "touchstart",
+    e => {
+
+        if (dead) {
+
+            e.preventDefault();
+            restart();
+
+        } else if (finished) {
+
+            e.preventDefault();
+            nextRound();
+        }
+    }
+);
+
+canvas.addEventListener(
+    "click",
+    () => {
+
+        if (dead) {
+
+            restart();
+
+        } else if (finished) {
+
+            nextRound();
+        }
+    }
+);
+
+
+// ================================
+// DRAW
+// ================================
+
+function draw() {
+
+    drawBackground();
+
+    drawPlatforms();
+
+    drawSpikes();
+
+    drawPlayer();
+
+    drawUI();
+
+    drawDeath();
+
+    drawFinished();
+}
+
+
+// ================================
+// LOOP
+// ================================
+
+function loop() {
+
+    update();
+
+    draw();
+
+    requestAnimationFrame(loop);
+}
+
+
+// START
+
+makeLevel();
+loop();
+
+</script>
 
 </body>
     </html>
