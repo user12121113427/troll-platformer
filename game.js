@@ -1,4 +1,3 @@
-alert("NEW GAME.JS");
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
@@ -6,27 +5,30 @@ canvas.width = 900;
 canvas.height = 500;
 
 
-// =============================
-// GAME
-// =============================
+// ========================================
+// GAME STATE
+// ========================================
 
+let level = 1;
 let hearts = 3;
+
 let gameOver = false;
+let levelComplete = false;
 
 let invincible = false;
 let invincibleTimer = 0;
 
 
-// =============================
+// ========================================
 // KEYS
-// =============================
+// ========================================
 
 const keys = {};
 
 
-// =============================
+// ========================================
 // PLAYER
-// =============================
+// ========================================
 
 const player = {
 
@@ -42,26 +44,25 @@ const player = {
 
     jumping: false,
 
-    // Walking animation
     walking: false,
     walkTime: 0,
 
-    // Direction
     direction: 1
+
 };
 
 
-// =============================
+// ========================================
 // PHYSICS
-// =============================
+// ========================================
 
 const gravity = 0.6;
 const jumpPower = -12;
 
 
-// =============================
+// ========================================
 // PLATFORM
-// =============================
+// ========================================
 
 const platform = {
 
@@ -74,32 +75,119 @@ const platform = {
 };
 
 
-// =============================
-// SPIKES
-// =============================
+// ========================================
+// LEVEL DATA
+// ========================================
 
-const spikes = [
+const levelData = {
 
-    {
-        x: 450,
-        y: 415,
-        width: 60,
-        height: 25
+    1: {
+
+        finishX: 820,
+
+        spikes: [
+            {
+                x: 450,
+                y: 415,
+                width: 60,
+                height: 25
+            }
+        ]
+
     },
 
-    {
-        x: 650,
-        y: 415,
-        width: 60,
-        height: 25
+
+    2: {
+
+        finishX: 820,
+
+        spikes: [
+            {
+                x: 300,
+                y: 415,
+                width: 60,
+                height: 25
+            },
+
+            {
+                x: 500,
+                y: 415,
+                width: 60,
+                height: 25
+            },
+
+            {
+                x: 700,
+                y: 415,
+                width: 60,
+                height: 25
+            }
+        ]
+
+    },
+
+
+    3: {
+
+        finishX: 820,
+
+        spikes: [
+            {
+                x: 250,
+                y: 415,
+                width: 60,
+                height: 25
+            },
+
+            {
+                x: 390,
+                y: 415,
+                width: 75,
+                height: 25
+            },
+
+            {
+                x: 550,
+                y: 415,
+                width: 60,
+                height: 25
+            },
+
+            {
+                x: 700,
+                y: 415,
+                width: 80,
+                height: 25
+            }
+        ]
+
     }
 
-];
+};
 
 
-// =============================
+// ========================================
+// CURRENT LEVEL SPIKES
+// ========================================
+
+let spikes = [];
+
+
+function loadLevel() {
+
+    spikes =
+        levelData[level].spikes.map(
+            spike => ({
+                ...spike
+            })
+        );
+
+}
+
+
+// ========================================
 // KEYBOARD
-// =============================
+// ========================================
 
 document.addEventListener(
     "keydown",
@@ -132,9 +220,9 @@ document.addEventListener(
 );
 
 
-// =============================
+// ========================================
 // MOBILE BUTTONS
-// =============================
+// ========================================
 
 function setupButton(id, key) {
 
@@ -199,23 +287,15 @@ function setupButton(id, key) {
 }
 
 
-// LEFT
-
 setupButton(
     "left",
     "ArrowLeft"
 );
 
-
-// RIGHT
-
 setupButton(
     "right",
     "ArrowRight"
 );
-
-
-// JUMP
 
 setupButton(
     "jump",
@@ -223,17 +303,32 @@ setupButton(
 );
 
 
-// =============================
-// TAP TO REVIVE
-// =============================
+// ========================================
+// SCREEN TAP
+// ========================================
 
 canvas.addEventListener(
     "click",
     function() {
 
+        // GAME OVER
+
         if (gameOver) {
 
             restartGame();
+
+            return;
+
+        }
+
+
+        // LEVEL COMPLETE
+
+        if (levelComplete) {
+
+            nextLevel();
+
+            return;
 
         }
 
@@ -241,15 +336,31 @@ canvas.addEventListener(
 );
 
 
-// =============================
-// RESTART
-// =============================
+// ========================================
+// RESTART GAME
+// ========================================
 
 function restartGame() {
+
+    level = 1;
 
     hearts = 3;
 
     gameOver = false;
+    levelComplete = false;
+
+    resetPlayer();
+
+    loadLevel();
+
+}
+
+
+// ========================================
+// RESET PLAYER
+// ========================================
+
+function resetPlayer() {
 
     player.x = 100;
     player.y = 350;
@@ -271,13 +382,58 @@ function restartGame() {
 }
 
 
-// =============================
+// ========================================
+// NEXT LEVEL
+// ========================================
+
+function nextLevel() {
+
+    levelComplete = false;
+
+    level++;
+
+
+    // After level 3,
+    // restart at level 1 for now.
+
+    if (level > 3) {
+
+        level = 1;
+
+    }
+
+
+    hearts = 3;
+
+    resetPlayer();
+
+    loadLevel();
+
+}
+
+
+// ========================================
+// COMPLETE LEVEL
+// ========================================
+
+function completeLevel() {
+
+    if (levelComplete) return;
+
+    levelComplete = true;
+
+}
+
+
+// ========================================
 // LOSE HEART
-// =============================
+// ========================================
 
 function loseHeart() {
 
     if (gameOver) return;
+
+    if (levelComplete) return;
 
     if (invincible) return;
 
@@ -296,20 +452,7 @@ function loseHeart() {
     }
 
 
-    // Respawn
-
-    player.x = 100;
-
-    player.y = 350;
-
-    player.velocityY = 0;
-
-    player.jumping = false;
-
-    player.walking = false;
-
-
-    // Temporary protection
+    resetPlayer();
 
     invincible = true;
 
@@ -318,23 +461,23 @@ function loseHeart() {
 }
 
 
-// =============================
+// ========================================
 // UPDATE PLAYER
-// =============================
+// ========================================
 
 function updatePlayer() {
 
     if (gameOver) return;
 
+    if (levelComplete) return;
 
-    // Reset walking
 
     player.walking = false;
 
 
-    // =========================
+    // --------------------------------
     // MOVE LEFT
-    // =========================
+    // --------------------------------
 
     if (
         keys["ArrowLeft"] ||
@@ -350,9 +493,9 @@ function updatePlayer() {
     }
 
 
-    // =========================
+    // --------------------------------
     // MOVE RIGHT
-    // =========================
+    // --------------------------------
 
     if (
         keys["ArrowRight"] ||
@@ -368,30 +511,9 @@ function updatePlayer() {
     }
 
 
-    // =========================
-    // JUMP
-    // =========================
-
-    if (
-        (
-            keys["ArrowUp"] ||
-            keys["w"] ||
-            keys[" "]
-        )
-        &&
-        !player.jumping
-    ) {
-
-        player.velocityY = jumpPower;
-
-        player.jumping = true;
-
-    }
-
-
-    // =========================
+    // --------------------------------
     // WALK ANIMATION
-    // =========================
+    // --------------------------------
 
     if (
         player.walking &&
@@ -403,18 +525,40 @@ function updatePlayer() {
     }
 
 
-    // =========================
+    // --------------------------------
+    // JUMP
+    // --------------------------------
+
+    if (
+        (
+            keys["ArrowUp"] ||
+            keys["w"] ||
+            keys[" "]
+        )
+        &&
+        !player.jumping
+    ) {
+
+        player.velocityY =
+            jumpPower;
+
+        player.jumping = true;
+
+    }
+
+
+    // --------------------------------
     // GRAVITY
-    // =========================
+    // --------------------------------
 
     player.velocityY += gravity;
 
     player.y += player.velocityY;
 
 
-    // =========================
+    // --------------------------------
     // PLATFORM
-    // =========================
+    // --------------------------------
 
     if (
         player.y + player.height >=
@@ -447,9 +591,9 @@ function updatePlayer() {
     }
 
 
-    // =========================
+    // --------------------------------
     // SPIKES
-    // =========================
+    // --------------------------------
 
     for (
         let i = 0;
@@ -491,9 +635,9 @@ function updatePlayer() {
     }
 
 
-    // =========================
+    // --------------------------------
     // FALLING
-    // =========================
+    // --------------------------------
 
     if (
         player.y >
@@ -505,9 +649,9 @@ function updatePlayer() {
     }
 
 
-    // =========================
-    // SCREEN LIMITS
-    // =========================
+    // --------------------------------
+    // SCREEN LIMIT
+    // --------------------------------
 
     if (player.x < 0) {
 
@@ -529,9 +673,27 @@ function updatePlayer() {
     }
 
 
-    // =========================
+    // --------------------------------
+    // FINISH
+    // --------------------------------
+
+    const finishX =
+        levelData[level].finishX;
+
+
+    if (
+        player.x + player.width >=
+        finishX
+    ) {
+
+        completeLevel();
+
+    }
+
+
+    // --------------------------------
     // INVINCIBILITY
-    // =========================
+    // --------------------------------
 
     if (invincible) {
 
@@ -548,9 +710,9 @@ function updatePlayer() {
 }
 
 
-// =============================
+// ========================================
 // BACKGROUND
-// =============================
+// ========================================
 
 function drawBackground() {
 
@@ -578,7 +740,7 @@ function drawBackground() {
 
         const y =
             (i * 53) %
-            360;
+            350;
 
 
         ctx.fillStyle =
@@ -601,16 +763,38 @@ function drawBackground() {
 
     ctx.globalAlpha = 1;
 
+
+    // Level number
+
+    ctx.fillStyle =
+        "rgba(255,79,174,0.08)";
+
+    ctx.font =
+        "bold 150px Arial";
+
+    ctx.textAlign =
+        "center";
+
+    ctx.fillText(
+        level,
+        canvas.width / 2,
+        200
+    );
+
+    ctx.textAlign =
+        "left";
+
 }
 
 
-// =============================
+// ========================================
 // PLATFORM
-// =============================
+// ========================================
 
 function drawPlatform() {
 
-    ctx.fillStyle = "#15121d";
+    ctx.fillStyle =
+        "#15121d";
 
     ctx.fillRect(
         platform.x,
@@ -620,7 +804,8 @@ function drawPlatform() {
     );
 
 
-    ctx.fillStyle = "#ff4fae";
+    ctx.fillStyle =
+        "#ff4fae";
 
     ctx.fillRect(
         platform.x,
@@ -632,9 +817,9 @@ function drawPlatform() {
 }
 
 
-// =============================
+// ========================================
 // SPIKES
-// =============================
+// ========================================
 
 function drawSpikes() {
 
@@ -647,7 +832,8 @@ function drawSpikes() {
         const spike = spikes[i];
 
 
-        ctx.fillStyle = "#ff1744";
+        ctx.fillStyle =
+            "#ff1744";
 
 
         for (
@@ -688,13 +874,85 @@ function drawSpikes() {
 }
 
 
-// =============================
+// ========================================
+// FINISH
+// ========================================
+
+function drawFinish() {
+
+    const finishX =
+        levelData[level].finishX;
+
+
+    // Glow
+
+    ctx.fillStyle =
+        "rgba(255,79,174,0.15)";
+
+    ctx.fillRect(
+        finishX - 15,
+        100,
+        60,
+        340
+    );
+
+
+    // Gate
+
+    ctx.strokeStyle =
+        "#ff4fae";
+
+    ctx.lineWidth = 5;
+
+    ctx.strokeRect(
+        finishX,
+        320,
+        40,
+        120
+    );
+
+
+    // Top
+
+    ctx.fillStyle =
+        "#ff4fae";
+
+    ctx.fillRect(
+        finishX - 5,
+        315,
+        50,
+        8
+    );
+
+
+    // Label
+
+    ctx.fillStyle =
+        "#ffffff";
+
+    ctx.font =
+        "14px monospace";
+
+    ctx.textAlign =
+        "center";
+
+    ctx.fillText(
+        "FINISH",
+        finishX + 20,
+        300
+    );
+
+    ctx.textAlign =
+        "left";
+
+}
+
+
+// ========================================
 // STICKMAN
-// =============================
+// ========================================
 
 function drawPlayer() {
-
-    // Blink while invincible
 
     if (
         invincible &&
@@ -719,12 +977,11 @@ function drawPlayer() {
     ctx.save();
 
 
-    // Face movement direction
-
     ctx.translate(
         centerX,
         topY
     );
+
 
     ctx.scale(
         player.direction,
@@ -741,11 +998,8 @@ function drawPlayer() {
         "round";
 
 
-    // =========================
-    // WALKING MOTION
-    // =========================
-
     let legMove = 0;
+
     let armMove = 0;
 
 
@@ -767,9 +1021,7 @@ function drawPlayer() {
     }
 
 
-    // =========================
     // HEAD
-    // =========================
 
     ctx.beginPath();
 
@@ -784,9 +1036,7 @@ function drawPlayer() {
     ctx.stroke();
 
 
-    // =========================
     // BODY
-    // =========================
 
     ctx.beginPath();
 
@@ -803,14 +1053,9 @@ function drawPlayer() {
     ctx.stroke();
 
 
-    // =========================
     // ARMS
-    // =========================
 
     ctx.beginPath();
-
-
-    // Back arm
 
     ctx.moveTo(
         0,
@@ -819,12 +1064,9 @@ function drawPlayer() {
 
     ctx.lineTo(
         -14,
-        35 -
-        armMove
+        35 - armMove
     );
 
-
-    // Front arm
 
     ctx.moveTo(
         0,
@@ -833,22 +1075,26 @@ function drawPlayer() {
 
     ctx.lineTo(
         14,
-        35 +
-        armMove
+        35 + armMove
     );
-
 
     ctx.stroke();
 
 
-    // =========================
     // LEGS
-    // =========================
 
     ctx.beginPath();
 
+    ctx.moveTo(
+        0,
+        40
+    );
 
-    // Back leg
+    ctx.lineTo(
+        -11 - legMove,
+        55
+    );
+
 
     ctx.moveTo(
         0,
@@ -856,25 +1102,9 @@ function drawPlayer() {
     );
 
     ctx.lineTo(
-        -11 -
-        legMove,
+        11 + legMove,
         55
     );
-
-
-    // Front leg
-
-    ctx.moveTo(
-        0,
-        40
-    );
-
-    ctx.lineTo(
-        11 +
-        legMove,
-        55
-    );
-
 
     ctx.stroke();
 
@@ -884,9 +1114,9 @@ function drawPlayer() {
 }
 
 
-// =============================
+// ========================================
 // HEARTS
-// =============================
+// ========================================
 
 function drawHearts() {
 
@@ -929,18 +1159,17 @@ function drawHearts() {
 }
 
 
-// =============================
-// GAME OVER
-// =============================
+// ========================================
+// LEVEL COMPLETE
+// ========================================
 
-function drawGameOver() {
+function drawLevelComplete() {
 
-    if (!gameOver) return;
+    if (!levelComplete) return;
 
 
     ctx.fillStyle =
-        "rgba(0, 0, 0, 0.88)";
-
+        "rgba(5,0,8,0.9)";
 
     ctx.fillRect(
         0,
@@ -957,10 +1186,77 @@ function drawGameOver() {
     ctx.fillStyle =
         "#ff4fae";
 
-
     ctx.font =
         "bold 52px Georgia";
 
+    ctx.fillText(
+        "LEVEL COMPLETE",
+        canvas.width / 2,
+        210
+    );
+
+
+    ctx.fillStyle =
+        "#ffffff";
+
+    ctx.font =
+        "20px monospace";
+
+
+    if (level < 3) {
+
+        ctx.fillText(
+            "TAP TO CONTINUE",
+            canvas.width / 2,
+            270
+        );
+
+    } else {
+
+        ctx.fillText(
+            "TAP TO RESTART",
+            canvas.width / 2,
+            270
+        );
+
+    }
+
+
+    ctx.textAlign =
+        "left";
+
+}
+
+
+// ========================================
+// GAME OVER
+// ========================================
+
+function drawGameOver() {
+
+    if (!gameOver) return;
+
+
+    ctx.fillStyle =
+        "rgba(0,0,0,0.9)";
+
+    ctx.fillRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+
+    ctx.textAlign =
+        "center";
+
+
+    ctx.fillStyle =
+        "#ff4fae";
+
+    ctx.font =
+        "bold 52px Georgia";
 
     ctx.fillText(
         "GAME OVER",
@@ -972,30 +1268,13 @@ function drawGameOver() {
     ctx.fillStyle =
         "#ffffff";
 
-
     ctx.font =
         "20px monospace";
-
 
     ctx.fillText(
         "TAP THE SCREEN TO REVIVE",
         canvas.width / 2,
         270
-    );
-
-
-    ctx.fillStyle =
-        "#ff4fae";
-
-
-    ctx.font =
-        "28px Arial";
-
-
-    ctx.fillText(
-        "♡ ♡ ♡",
-        canvas.width / 2,
-        320
     );
 
 
@@ -1005,9 +1284,9 @@ function drawGameOver() {
 }
 
 
-// =============================
+// ========================================
 // DRAW
-// =============================
+// ========================================
 
 function draw() {
 
@@ -1017,18 +1296,22 @@ function draw() {
 
     drawSpikes();
 
+    drawFinish();
+
     drawPlayer();
 
     drawHearts();
+
+    drawLevelComplete();
 
     drawGameOver();
 
 }
 
 
-// =============================
+// ========================================
 // GAME LOOP
-// =============================
+// ========================================
 
 function gameLoop() {
 
@@ -1042,5 +1325,11 @@ function gameLoop() {
 
 }
 
+
+// ========================================
+// START
+// ========================================
+
+loadLevel();
 
 gameLoop();
