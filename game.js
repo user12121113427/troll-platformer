@@ -33,7 +33,7 @@ const keys = {};
 const player = {
 
     x: 100,
-    y: 350,
+    y: 345,
 
     width: 28,
     height: 55,
@@ -64,13 +64,16 @@ const jumpPower = -12;
 // PLATFORM
 // ========================================
 
+// Moved down slightly so the stickman's
+// feet aren't covered by the platform.
+
 const platform = {
 
     x: 0,
-    y: 440,
+    y: 448,
 
     width: 900,
-    height: 60
+    height: 52
 
 };
 
@@ -88,7 +91,7 @@ const levelData = {
         spikes: [
             {
                 x: 450,
-                y: 415,
+                y: 423,
                 width: 60,
                 height: 25
             }
@@ -104,21 +107,21 @@ const levelData = {
         spikes: [
             {
                 x: 300,
-                y: 415,
+                y: 423,
                 width: 60,
                 height: 25
             },
 
             {
                 x: 500,
-                y: 415,
+                y: 423,
                 width: 60,
                 height: 25
             },
 
             {
                 x: 700,
-                y: 415,
+                y: 423,
                 width: 60,
                 height: 25
             }
@@ -134,28 +137,28 @@ const levelData = {
         spikes: [
             {
                 x: 250,
-                y: 415,
+                y: 423,
                 width: 60,
                 height: 25
             },
 
             {
                 x: 390,
-                y: 415,
+                y: 423,
                 width: 75,
                 height: 25
             },
 
             {
                 x: 550,
-                y: 415,
+                y: 423,
                 width: 60,
                 height: 25
             },
 
             {
                 x: 700,
-                y: 415,
+                y: 423,
                 width: 80,
                 height: 25
             }
@@ -311,18 +314,20 @@ canvas.addEventListener(
     "click",
     function() {
 
-        // GAME OVER
+        // Game Over:
+        // restart CURRENT level.
 
         if (gameOver) {
 
-            restartGame();
+            restartCurrentLevel();
 
             return;
 
         }
 
 
-        // LEVEL COMPLETE
+        // Level complete:
+        // continue to next level.
 
         if (levelComplete) {
 
@@ -337,16 +342,18 @@ canvas.addEventListener(
 
 
 // ========================================
-// RESTART GAME
+// RESTART CURRENT LEVEL
 // ========================================
 
-function restartGame() {
+function restartCurrentLevel() {
 
-    level = 1;
+    // IMPORTANT:
+    // Do NOT set level = 1 here.
 
     hearts = 3;
 
     gameOver = false;
+
     levelComplete = false;
 
     resetPlayer();
@@ -363,7 +370,11 @@ function restartGame() {
 function resetPlayer() {
 
     player.x = 100;
-    player.y = 350;
+
+    player.y =
+        platform.y -
+        player.height;
+
 
     player.velocityY = 0;
 
@@ -393,8 +404,8 @@ function nextLevel() {
     level++;
 
 
-    // After level 3,
-    // restart at level 1 for now.
+    // After Level 3,
+    // restart at Level 1.
 
     if (level > 3) {
 
@@ -884,8 +895,6 @@ function drawFinish() {
         levelData[level].finishX;
 
 
-    // Glow
-
     ctx.fillStyle =
         "rgba(255,79,174,0.15)";
 
@@ -896,8 +905,6 @@ function drawFinish() {
         340
     );
 
-
-    // Gate
 
     ctx.strokeStyle =
         "#ff4fae";
@@ -912,8 +919,6 @@ function drawFinish() {
     );
 
 
-    // Top
-
     ctx.fillStyle =
         "#ff4fae";
 
@@ -924,8 +929,6 @@ function drawFinish() {
         8
     );
 
-
-    // Label
 
     ctx.fillStyle =
         "#ffffff";
@@ -1272,7 +1275,7 @@ function drawGameOver() {
         "20px monospace";
 
     ctx.fillText(
-        "TAP THE SCREEN TO REVIVE",
+        "TAP TO RETRY LEVEL " + level,
         canvas.width / 2,
         270
     );
@@ -1331,5 +1334,7 @@ function gameLoop() {
 // ========================================
 
 loadLevel();
+
+resetPlayer();
 
 gameLoop();
