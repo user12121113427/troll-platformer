@@ -4,17 +4,33 @@ const ctx = canvas.getContext("2d");
 canvas.width = 800;
 canvas.height = 450;
 
-// =========================
+// ==================================================
+// GAME STATE
+// ==================================================
+
+let round = 1;
+let score = 0;
+let bestScore = 0;
+
+let gameOver = false;
+let roundComplete = false;
+
+let cameraX = 0;
+
+// ==================================================
 // PLAYER
-// =========================
+// ==================================================
 
 const player = {
     x: 70,
     y: 335,
+
     width: 24,
     height: 45,
+
     speed: 4,
     velocityY: 0,
+
     jumping: false,
     walkTime: 0
 };
@@ -27,26 +43,101 @@ const keys = {
     right: false
 };
 
-let cameraX = 0;
-let gameOver = false;
-let won = false;
+// ==================================================
+// LEVEL DATA
+// ==================================================
 
-let score = 0;
-let bestScore = 0;
+let platforms = [];
+let spikes = [];
 
-// =========================
-// KEYBOARD CONTROLS
-// =========================
+let goal = {
+    x: 0,
+    y: 0,
+    width: 45,
+    height: 80
+};
 
-document.addEventListener("keydown", (e) => {
+// ==================================================
+// MOBILE CONTROLS
+// ==================================================
 
-    if (gameOver) {
-        if (e.key === "r" || e.key === "Enter" || e.key === " ") {
-            restart();
-        }
+const leftButton = document.getElementById("left");
+const rightButton = document.getElementById("right");
+const jumpButton = document.getElementById("jump");
 
-        return;
+function holdButton(button, down, up) {
+
+    if (!button) return;
+
+    button.addEventListener("touchstart", function(e) {
+        e.preventDefault();
+        down();
+    });
+
+    button.addEventListener("touchend", function(e) {
+        e.preventDefault();
+        up();
+    });
+
+    button.addEventListener("touchcancel", up);
+
+    button.addEventListener("mousedown", down);
+    button.addEventListener("mouseup", up);
+    button.addEventListener("mouseleave", up);
+}
+
+holdButton(
+    leftButton,
+    function() {
+        keys.left = true;
+    },
+    function() {
+        keys.left = false;
     }
+);
+
+holdButton(
+    rightButton,
+    function() {
+        keys.right = true;
+    },
+    function() {
+        keys.right = false;
+    }
+);
+
+if (jumpButton) {
+
+    jumpButton.addEventListener("touchstart", function(e) {
+
+        e.preventDefault();
+
+        if (gameOver) {
+            restartRound();
+        } else if (roundComplete) {
+            nextRound();
+        } else {
+            jump();
+        }
+    });
+
+    jumpButton.addEventListener("mousedown", function() {
+
+        if (gameOver) {
+            restartRound();
+        } else if (roundComplete) {
+            nextRound();
+        } else {
+            jump();
+        }
+    });
+}
+
+// ==================================================
+// KEYBOARD
+// ==================================================
+
+document.addEventListener("keydown", function(e) {
 
     if (e.key === "ArrowLeft" || e.key === "a") {
         keys.left = true;
@@ -61,12 +152,27 @@ document.addEventListener("keydown", (e) => {
         e.key === "w" ||
         e.key === " "
     ) {
+
         e.preventDefault();
-        jump();
+
+        if (gameOver) {
+            restartRound();
+        } else if (roundComplete) {
+            nextRound();
+        } else {
+            jump();
+        }
+    }
+
+    if (e.key.toLowerCase() === "r") {
+
+        if (gameOver) {
+            restartRound();
+        }
     }
 });
 
-document.addEventListener("keyup", (e) => {
+document.addEventListener("keyup", function(e) {
 
     if (e.key === "ArrowLeft" || e.key === "a") {
         keys.left = false;
@@ -77,267 +183,311 @@ document.addEventListener("keyup", (e) => {
     }
 });
 
-// =========================
-// MOBILE CONTROLS
-// =========================
+// ==================================================
+// TAP SCREEN TO REVIVE / NEXT ROUND
+// ==================================================
 
-const leftButton = document.getElementById("left");
-const rightButton = document.getElementById("right");
-const jumpButton = document.getElementById("jump");
+canvas.addEventListener("touchstart", function(e) {
 
-function holdButton(button, down, up) {
+    if (gameOver) {
 
-    button.addEventListener("touchstart", (e) => {
         e.preventDefault();
-        down();
-    });
+        restartRound();
 
-    button.addEventListener("touchend", (e) => {
+    } else if (roundComplete) {
+
         e.preventDefault();
-        up();
-    });
-
-    button.addEventListener("touchcancel", up);
-
-    button.addEventListener("mousedown", down);
-    button.addEventListener("mouseup", up);
-    button.addEventListener("mouseleave", up);
-}
-
-holdButton(
-    leftButton,
-    () => keys.left = true,
-    () => keys.left = false
-);
-
-holdButton(
-    rightButton,
-    () => keys.right = true,
-    () => keys.right = false
-);
-
-jumpButton.addEventListener("touchstart", (e) => {
-    e.preventDefault();
-
-    if (gameOver) {
-        restart();
-    } else {
-        jump();
+        nextRound();
     }
 });
 
-jumpButton.addEventListener("mousedown", () => {
+canvas.addEventListener("click", function() {
 
     if (gameOver) {
-        restart();
-    } else {
-        jump();
+
+        restartRound();
+
+    } else if (roundComplete) {
+
+        nextRound();
     }
 });
 
-// =========================
-// TAP SCREEN TO RESPAWN
-// =========================
-
-canvas.addEventListener("touchstart", (e) => {
-
-    if (gameOver) {
-        e.preventDefault();
-        restart();
-    }
-});
-
-canvas.addEventListener("click", () => {
-
-    if (gameOver) {
-        restart();
-    }
-});
-
-// =========================
+// ==================================================
 // JUMP
-// =========================
+// ==================================================
 
 function jump() {
 
-    if (!player.jumping && !gameOver && !won) {
+    if (
+        !player.jumping &&
+        !gameOver &&
+        !roundComplete
+    ) {
 
         player.velocityY = jumpPower;
         player.jumping = true;
     }
 }
 
-// =========================
-// LEVEL
-// =========================
+// ==================================================
+// CREATE ROUND
+// ==================================================
 
-const platforms = [
+function createRound() {
 
-    {
+    platforms = [];
+    spikes = [];
+
+    // ----------------------------------------------
+    // Difficulty
+    // ----------------------------------------------
+
+    const difficulty = round;
+
+    const gapSize =
+        Math.min(100 + difficulty * 5, 160);
+
+    const platformSize =
+        Math.max(300 - difficulty * 8, 170);
+
+    const spikeChance =
+        Math.min(0.25 + difficulty * 0.04, 0.7);
+
+    // ----------------------------------------------
+    // Starting platform
+    // ----------------------------------------------
+
+    platforms.push({
         x: 0,
         y: 380,
-        width: 450,
+        width: 500,
         height: 70
-    },
+    });
 
-    {
-        x: 550,
-        y: 380,
-        width: 300,
-        height: 70
-    },
+    let currentX = 500;
 
-    {
-        x: 950,
-        y: 320,
-        width: 220,
-        height: 30
-    },
+    // ----------------------------------------------
+    // Generate platforms
+    // ----------------------------------------------
 
-    {
-        x: 1250,
-        y: 380,
-        width: 400,
-        height: 70
-    },
+    const numberOfPlatforms =
+        7 + difficulty * 2;
 
-    {
-        x: 1750,
-        y: 330,
-        width: 220,
-        height: 30
-    },
+    for (
+        let i = 0;
+        i < numberOfPlatforms;
+        i++
+    ) {
 
-    {
-        x: 2100,
-        y: 380,
-        width: 600,
-        height: 70
+        // Gap
+
+        const gap =
+            gapSize +
+            Math.random() * 50;
+
+        currentX += gap;
+
+        // Platform
+
+        const width =
+            platformSize +
+            Math.random() * 100;
+
+        const raisedChance =
+            Math.min(0.15 + difficulty * 0.03, 0.55);
+
+        let platformY = 380;
+
+        if (Math.random() < raisedChance) {
+
+            platformY =
+                300 +
+                Math.random() * 60;
+        }
+
+        platforms.push({
+
+            x: currentX,
+
+            y: platformY,
+
+            width: width,
+
+            height: 70
+        });
+
+        // ------------------------------------------
+        // Spikes
+        // ------------------------------------------
+
+        if (
+            Math.random() < spikeChance &&
+            width > 190
+        ) {
+
+            const spikeCount =
+                difficulty >= 4
+                    ? 2
+                    : 1;
+
+            for (
+                let s = 0;
+                s < spikeCount;
+                s++
+            ) {
+
+                spikes.push({
+
+                    x:
+                        currentX +
+                        80 +
+                        s * 55,
+
+                    y:
+                        platformY - 20,
+
+                    width: 40,
+
+                    height: 20
+                });
+            }
+        }
+
+        currentX += width;
     }
-];
 
-// =========================
-// SPIKES
-// =========================
+    // ----------------------------------------------
+    // Final platform
+    // ----------------------------------------------
 
-const spikes = [
+    currentX += gapSize;
 
-    {
-        x: 330,
-        y: 360,
-        width: 40,
-        height: 20
-    },
+    platforms.push({
 
-    {
-        x: 390,
-        y: 360,
-        width: 40,
-        height: 20
-    },
+        x: currentX,
 
-    {
-        x: 700,
-        y: 360,
-        width: 40,
-        height: 20
-    },
+        y: 380,
 
-    {
-        x: 1030,
+        width: 500,
+
+        height: 70
+    });
+
+    // ----------------------------------------------
+    // Goal
+    // ----------------------------------------------
+
+    goal = {
+
+        x: currentX + 400,
+
         y: 300,
-        width: 40,
-        height: 20
-    },
 
-    {
-        x: 1400,
-        y: 360,
-        width: 40,
-        height: 20
-    },
+        width: 45,
 
-    {
-        x: 1800,
-        y: 310,
-        width: 40,
-        height: 20
-    }
-];
+        height: 80
+    };
+}
 
-// =========================
-// GOAL
-// =========================
-
-const goal = {
-    x: 2500,
-    y: 300,
-    width: 45,
-    height: 80
-};
-
-// =========================
+// ==================================================
 // COLLISION
-// =========================
+// ==================================================
 
 function collision(a, b) {
 
     return (
+
         a.x < b.x + b.width &&
+
         a.x + a.width > b.x &&
+
         a.y < b.y + b.height &&
+
         a.y + a.height > b.y
     );
 }
 
-// =========================
+// ==================================================
 // UPDATE
-// =========================
+// ==================================================
 
 function update() {
 
-    if (gameOver || won) {
+    if (
+        gameOver ||
+        roundComplete
+    ) {
         return;
     }
 
     let walking = false;
 
+    // ----------------------------------------------
+    // Movement
+    // ----------------------------------------------
+
     if (keys.left) {
 
         player.x -= player.speed;
+
         walking = true;
     }
 
     if (keys.right) {
 
         player.x += player.speed;
+
         walking = true;
     }
 
+    // ----------------------------------------------
+    // Walking animation
+    // ----------------------------------------------
+
     if (walking) {
+
         player.walkTime += 0.2;
+
     } else {
+
         player.walkTime = 0;
     }
 
+    // ----------------------------------------------
     // Gravity
+    // ----------------------------------------------
+
     player.velocityY += gravity;
+
     player.y += player.velocityY;
 
     player.jumping = true;
 
+    // ----------------------------------------------
     // Platform collision
+    // ----------------------------------------------
+
     for (const platform of platforms) {
 
-        const playerBottom =
+        const bottom =
             player.y + player.height;
 
         if (
-            player.x + player.width > platform.x &&
-            player.x < platform.x + platform.width &&
-            playerBottom >= platform.y &&
-            playerBottom <= platform.y + 20 &&
+
+            player.x + player.width >
+                platform.x &&
+
+            player.x <
+                platform.x + platform.width &&
+
+            bottom >= platform.y &&
+
+            bottom <=
+                platform.y + 25 &&
+
             player.velocityY >= 0
+
         ) {
 
             player.y =
@@ -349,106 +499,201 @@ function update() {
         }
     }
 
-    // Spikes
+    // ----------------------------------------------
+    // Spike collision
+    // ----------------------------------------------
+
     for (const spike of spikes) {
 
         if (collision(player, spike)) {
+
             die();
+
+            return;
         }
     }
 
-    // Fall
-    if (player.y > 500) {
+    // ----------------------------------------------
+    // Fall into gap
+    // ----------------------------------------------
+
+    if (player.y > 520) {
+
         die();
+
+        return;
     }
 
+    // ----------------------------------------------
     // Goal
+    // ----------------------------------------------
+
     if (collision(player, goal)) {
-        won = true;
+
+        finishRound();
+
+        return;
     }
 
+    // ----------------------------------------------
     // Camera
-    cameraX = player.x - 180;
+    // ----------------------------------------------
+
+    cameraX =
+        player.x - 180;
 
     if (cameraX < 0) {
+
         cameraX = 0;
     }
 
+    // ----------------------------------------------
     // Score
-    score = Math.max(
-        0,
-        Math.floor(player.x / 10)
-    );
+    // ----------------------------------------------
+
+    score =
+        Math.max(
+            score,
+            Math.floor(
+                player.x / 10
+            )
+        );
 
     if (score > bestScore) {
+
         bestScore = score;
     }
 }
 
-// =========================
-// DEATH
-// =========================
+// ==================================================
+// DIE
+// ==================================================
 
 function die() {
 
     gameOver = true;
 
     if (score > bestScore) {
+
         bestScore = score;
     }
 }
 
-// =========================
-// RESTART
-// =========================
+// ==================================================
+// RESTART CURRENT ROUND
+// ==================================================
 
-function restart() {
+function restartRound() {
 
     player.x = 70;
     player.y = 335;
 
     player.velocityY = 0;
+
     player.jumping = false;
 
     player.walkTime = 0;
 
     cameraX = 0;
 
-    score = 0;
-
     gameOver = false;
-    won = false;
+
+    roundComplete = false;
+
+    // Keep score, but give a small penalty
+
+    score =
+        Math.max(
+            0,
+            score - 10
+        );
 }
 
-// =========================
+// ==================================================
+// FINISH ROUND
+// ==================================================
+
+function finishRound() {
+
+    roundComplete = true;
+
+    if (score > bestScore) {
+
+        bestScore = score;
+    }
+}
+
+// ==================================================
+// NEXT ROUND
+// ==================================================
+
+function nextRound() {
+
+    round++;
+
+    roundComplete = false;
+
+    gameOver = false;
+
+    player.x = 70;
+    player.y = 335;
+
+    player.velocityY = 0;
+
+    player.jumping = false;
+
+    player.walkTime = 0;
+
+    cameraX = 0;
+
+    // Increase movement speed
+
+    player.speed =
+        Math.min(
+            4 + round * 0.25,
+            7
+        );
+
+    createRound();
+}
+
+// ==================================================
 // GOTH BACKGROUND
-// =========================
+// ==================================================
 
 function drawBackground() {
 
-    const time = Date.now() / 2000;
+    const time =
+        Date.now() / 2000;
 
-    // Dark animated gradient
-    const gradient = ctx.createLinearGradient(
-        0,
-        0,
-        0,
-        canvas.height
-    );
+    // ----------------------------------------------
+    // Background gradient
+    // ----------------------------------------------
+
+    const gradient =
+        ctx.createLinearGradient(
+            0,
+            0,
+            0,
+            canvas.height
+        );
+
+    const hueShift =
+        (round - 1) * 8;
 
     gradient.addColorStop(
         0,
-        "#090014"
+        `hsl(${275 + hueShift}, 50%, 6%)`
     );
 
     gradient.addColorStop(
         0.5,
-        "#1a0828"
+        `hsl(${285 + hueShift}, 55%, 12%)`
     );
 
     gradient.addColorStop(
         1,
-        "#050008"
+        `hsl(${260 + hueShift}, 50%, 4%)`
     );
 
     ctx.fillStyle = gradient;
@@ -460,31 +705,44 @@ function drawBackground() {
         canvas.height
     );
 
+    // ----------------------------------------------
     // Moon
-    const moonX = 650;
-    const moonY = 95;
+    // ----------------------------------------------
 
-    ctx.fillStyle = "#e8d9ff";
+    const moonX = 650;
+    const moonY = 90;
+
+    ctx.shadowColor =
+        "#d9b3ff";
+
+    ctx.shadowBlur = 25;
+
+    ctx.fillStyle =
+        "#eee2ff";
 
     ctx.beginPath();
 
     ctx.arc(
         moonX,
         moonY,
-        42,
+        43,
         0,
         Math.PI * 2
     );
 
     ctx.fill();
 
+    ctx.shadowBlur = 0;
+
     // Moon shadow
-    ctx.fillStyle = "#12051c";
+
+    ctx.fillStyle =
+        `hsl(${275 + hueShift}, 50%, 8%)`;
 
     ctx.beginPath();
 
     ctx.arc(
-        moonX + 15,
+        moonX + 16,
         moonY - 10,
         40,
         0,
@@ -493,21 +751,28 @@ function drawBackground() {
 
     ctx.fill();
 
+    // ----------------------------------------------
     // Stars
-    for (let i = 0; i < 45; i++) {
+    // ----------------------------------------------
+
+    for (let i = 0; i < 55; i++) {
 
         const x =
-            (i * 137) % canvas.width;
+            (i * 137) %
+            canvas.width;
 
         const y =
-            20 + ((i * 71) % 220);
+            20 +
+            ((i * 71) % 230);
 
         const twinkle =
-            0.5 +
-            Math.sin(time * 3 + i) * 0.5;
+            0.4 +
+            Math.sin(
+                time * 3 + i
+            ) * 0.4;
 
         ctx.fillStyle =
-            `rgba(255,255,255,${0.3 + twinkle * 0.5})`;
+            `rgba(255,255,255,${twinkle})`;
 
         ctx.fillRect(
             x,
@@ -517,59 +782,89 @@ function drawBackground() {
         );
     }
 
-    // Distant gothic buildings
-    ctx.fillStyle = "#0a0610";
+    // ----------------------------------------------
+    // Gothic buildings
+    // ----------------------------------------------
 
-    for (let i = 0; i < 12; i++) {
+    ctx.fillStyle =
+        "#08040d";
+
+    for (let i = 0; i < 14; i++) {
 
         const x =
-            i * 80 -
-            ((cameraX * 0.15) % 80);
+            i * 75 -
+            (
+                cameraX * 0.15 %
+                75
+            );
 
         const height =
-            70 + ((i * 37) % 90);
+            60 +
+            ((i * 47) % 100);
 
         ctx.fillRect(
             x,
             380 - height,
-            65,
+            60,
             height
         );
 
-        // Spire
+        // Tower
+
         ctx.beginPath();
 
         ctx.moveTo(
-            x + 32,
+            x + 30,
             380 - height - 45
         );
 
         ctx.lineTo(
-            x + 10,
+            x + 8,
             380 - height
         );
 
         ctx.lineTo(
-            x + 55,
+            x + 52,
             380 - height
         );
 
         ctx.closePath();
 
         ctx.fill();
+
+        // Window
+
+        ctx.fillStyle =
+            "rgba(190,100,255,0.35)";
+
+        ctx.fillRect(
+            x + 25,
+            390 - height,
+            8,
+            16
+        );
+
+        ctx.fillStyle =
+            "#08040d";
     }
 
-    // Gothic crosses in the distance
+    // ----------------------------------------------
+    // Gothic crosses
+    // ----------------------------------------------
+
     for (let i = 0; i < 5; i++) {
 
         const x =
             i * 190 -
-            ((cameraX * 0.12) % 190);
+            (
+                cameraX * 0.12 %
+                190
+            );
 
         const y = 260;
 
         ctx.fillStyle =
-            "rgba(90,60,120,0.35)";
+            "rgba(180,100,230,0.25)";
 
         ctx.fillRect(
             x,
@@ -587,9 +882,9 @@ function drawBackground() {
     }
 }
 
-// =========================
-// PLATFORMS
-// =========================
+// ==================================================
+// DRAW PLATFORMS
+// ==================================================
 
 function drawPlatforms() {
 
@@ -598,8 +893,10 @@ function drawPlatforms() {
         const x =
             platform.x - cameraX;
 
-        // Main platform
-        ctx.fillStyle = "#111";
+        // Platform
+
+        ctx.fillStyle =
+            "#100d14";
 
         ctx.fillRect(
             x,
@@ -609,7 +906,9 @@ function drawPlatforms() {
         );
 
         // Neon top
-        ctx.fillStyle = "#b44cff";
+
+        ctx.fillStyle =
+            "#b84cff";
 
         ctx.fillRect(
             x,
@@ -618,29 +917,31 @@ function drawPlatforms() {
             4
         );
 
-        // Small gothic decorations
-        ctx.fillStyle = "#30203b";
+        // Gothic decorations
+
+        ctx.fillStyle =
+            "#382043";
 
         for (
-            let decorationX = x + 25;
-            decorationX < x + platform.width - 10;
-            decorationX += 50
+            let d = x + 20;
+            d < x + platform.width - 10;
+            d += 55
         ) {
 
             ctx.beginPath();
 
             ctx.moveTo(
-                decorationX,
+                d,
                 platform.y + 15
             );
 
             ctx.lineTo(
-                decorationX + 8,
-                platform.y + 30
+                d + 9,
+                platform.y + 32
             );
 
             ctx.lineTo(
-                decorationX + 16,
+                d + 18,
                 platform.y + 15
             );
 
@@ -651,9 +952,9 @@ function drawPlatforms() {
     }
 }
 
-// =========================
-// SPIKES
-// =========================
+// ==================================================
+// DRAW SPIKES
+// ==================================================
 
 function drawSpikes() {
 
@@ -662,7 +963,13 @@ function drawSpikes() {
         const x =
             spike.x - cameraX;
 
-        ctx.fillStyle = "#ff2d6f";
+        ctx.shadowColor =
+            "#ff176f";
+
+        ctx.shadowBlur = 10;
+
+        ctx.fillStyle =
+            "#ff176f";
 
         ctx.beginPath();
 
@@ -685,26 +992,21 @@ function drawSpikes() {
 
         ctx.fill();
 
-        // Spike glow
-        ctx.strokeStyle =
-            "rgba(255,45,111,0.4)";
-
-        ctx.lineWidth = 3;
-
-        ctx.stroke();
+        ctx.shadowBlur = 0;
     }
 }
 
-// =========================
-// GOAL
-// =========================
+// ==================================================
+// DRAW GOAL
+// ==================================================
 
 function drawGoal() {
 
     const x =
         goal.x - cameraX;
 
-    ctx.fillStyle = "#171018";
+    ctx.fillStyle =
+        "#181018";
 
     ctx.fillRect(
         x,
@@ -713,7 +1015,13 @@ function drawGoal() {
         goal.height
     );
 
-    ctx.fillStyle = "#d75cff";
+    ctx.shadowColor =
+        "#d75cff";
+
+    ctx.shadowBlur = 15;
+
+    ctx.fillStyle =
+        "#d75cff";
 
     ctx.beginPath();
 
@@ -735,44 +1043,57 @@ function drawGoal() {
     ctx.closePath();
 
     ctx.fill();
+
+    ctx.shadowBlur = 0;
 }
 
-// =========================
-// STICKMAN
-// =========================
+// ==================================================
+// DRAW STICKMAN
+// ==================================================
 
 function drawStickman() {
 
     const x =
-        player.x - cameraX + 12;
+        player.x -
+        cameraX +
+        12;
 
     const y =
         player.y;
 
     const walking =
-        keys.left || keys.right;
+        keys.left ||
+        keys.right;
 
     const legMovement =
         walking
-            ? Math.sin(player.walkTime) * 9
+            ? Math.sin(
+                player.walkTime
+            ) * 9
             : 0;
 
     const armMovement =
         walking
-            ? Math.sin(player.walkTime) * 7
+            ? Math.sin(
+                player.walkTime
+            ) * 7
             : 0;
 
-    // Glow
-    ctx.shadowColor = "#d75cff";
-    ctx.shadowBlur = 10;
+    ctx.shadowColor =
+        "#d75cff";
 
-    ctx.strokeStyle = "#ffffff";
+    ctx.shadowBlur = 12;
+
+    ctx.strokeStyle =
+        "#ffffff";
 
     ctx.lineWidth = 5;
 
-    ctx.lineCap = "round";
+    ctx.lineCap =
+        "round";
 
     // Head
+
     ctx.beginPath();
 
     ctx.arc(
@@ -786,6 +1107,7 @@ function drawStickman() {
     ctx.stroke();
 
     // Body
+
     ctx.beginPath();
 
     ctx.moveTo(
@@ -801,6 +1123,7 @@ function drawStickman() {
     ctx.stroke();
 
     // Arms
+
     ctx.beginPath();
 
     ctx.moveTo(
@@ -826,6 +1149,7 @@ function drawStickman() {
     ctx.stroke();
 
     // Legs
+
     ctx.beginPath();
 
     ctx.moveTo(
@@ -850,229 +1174,4 @@ function drawStickman() {
 
     ctx.stroke();
 
-    ctx.shadowBlur = 0;
-}
-
-// =========================
-// SCORE
-// =========================
-
-function drawScore() {
-
-    ctx.textAlign = "left";
-
-    ctx.fillStyle = "#ffffff";
-
-    ctx.font =
-        "bold 18px Arial";
-
-    ctx.fillText(
-        "SCORE  " + score,
-        20,
-        30
-    );
-
-    ctx.fillStyle =
-        "#c98cff";
-
-    ctx.font =
-        "14px Arial";
-
-    ctx.fillText(
-        "BEST  " + bestScore,
-        20,
-        50
-    );
-}
-
-// =========================
-// DEATH SCREEN
-// =========================
-
-function drawGameOver() {
-
-    if (!gameOver) {
-        return;
-    }
-
-    ctx.fillStyle =
-        "rgba(5,0,10,0.82)";
-
-    ctx.fillRect(
-        0,
-        0,
-        canvas.width,
-        canvas.height
-    );
-
-    ctx.textAlign = "center";
-
-    ctx.shadowColor = "#ff2d6f";
-    ctx.shadowBlur = 15;
-
-    ctx.fillStyle = "#ff4f8b";
-
-    ctx.font =
-        "bold 52px Arial";
-
-    ctx.fillText(
-        "YOU DIED",
-        canvas.width / 2,
-        180
-    );
-
-    ctx.shadowBlur = 0;
-
-    ctx.fillStyle = "white";
-
-    ctx.font =
-        "bold 22px Arial";
-
-    ctx.fillText(
-        "SCORE  " + score,
-        canvas.width / 2,
-        225
-    );
-
-    ctx.fillStyle =
-        "#c98cff";
-
-    ctx.font =
-        "18px Arial";
-
-    ctx.fillText(
-        "TAP ANYWHERE TO REVIVE",
-        canvas.width / 2,
-        270
-    );
-
-    ctx.font =
-        "14px Arial";
-
-    ctx.fillStyle =
-        "rgba(255,255,255,0.6)";
-
-    ctx.fillText(
-        "or press R",
-        canvas.width / 2,
-        300
-    );
-
-    ctx.textAlign = "left";
-}
-
-// =========================
-// WIN SCREEN
-// =========================
-
-function drawWin() {
-
-    if (!won) {
-        return;
-    }
-
-    ctx.fillStyle =
-        "rgba(5,0,10,0.8)";
-
-    ctx.fillRect(
-        0,
-        0,
-        canvas.width,
-        canvas.height
-    );
-
-    ctx.textAlign = "center";
-
-    ctx.fillStyle = "#d75cff";
-
-    ctx.font =
-        "bold 44px Arial";
-
-    ctx.fillText(
-        "LEVEL COMPLETE",
-        canvas.width / 2,
-        190
-    );
-
-    ctx.fillStyle = "white";
-
-    ctx.font =
-        "22px Arial";
-
-    ctx.fillText(
-        "SCORE  " + score,
-        canvas.width / 2,
-        235
-    );
-
-    ctx.font =
-        "17px Arial";
-
-    ctx.fillStyle =
-        "#c98cff";
-
-    ctx.fillText(
-        "TAP TO PLAY AGAIN",
-        canvas.width / 2,
-        275
-    );
-
-    ctx.textAlign = "left";
-}
-
-// =========================
-// TAP AFTER WIN
-// =========================
-
-canvas.addEventListener("touchstart", (e) => {
-
-    if (gameOver || won) {
-        e.preventDefault();
-        restart();
-    }
-});
-
-canvas.addEventListener("click", () => {
-
-    if (gameOver || won) {
-        restart();
-    }
-});
-
-// =========================
-// DRAW
-// =========================
-
-function draw() {
-
-    drawBackground();
-
-    drawPlatforms();
-
-    drawSpikes();
-
-    drawGoal();
-
-    drawStickman();
-
-    drawScore();
-
-    drawGameOver();
-
-    drawWin();
-}
-
-// =========================
-// GAME LOOP
-// =========================
-
-function gameLoop() {
-
-    update();
-
-    draw();
-
-    requestAnimationFrame(gameLoop);
-}
-
-gameLoop();
+    
