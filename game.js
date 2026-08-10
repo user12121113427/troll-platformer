@@ -33,7 +33,7 @@ const keys = {};
 const player = {
 
     x: 100,
-    y: 345,
+    y: 385,
 
     width: 28,
     height: 55,
@@ -64,16 +64,13 @@ const jumpPower = -12;
 // PLATFORM
 // ========================================
 
-// Moved down slightly so the stickman's
-// feet aren't covered by the platform.
-
 const platform = {
 
     x: 0,
-    y: 448,
+    y: 440,
 
     width: 900,
-    height: 52
+    height: 60
 
 };
 
@@ -91,7 +88,7 @@ const levelData = {
         spikes: [
             {
                 x: 450,
-                y: 423,
+                y: 415,
                 width: 60,
                 height: 25
             }
@@ -107,21 +104,21 @@ const levelData = {
         spikes: [
             {
                 x: 300,
-                y: 423,
+                y: 415,
                 width: 60,
                 height: 25
             },
 
             {
                 x: 500,
-                y: 423,
+                y: 415,
                 width: 60,
                 height: 25
             },
 
             {
                 x: 700,
-                y: 423,
+                y: 415,
                 width: 60,
                 height: 25
             }
@@ -137,28 +134,28 @@ const levelData = {
         spikes: [
             {
                 x: 250,
-                y: 423,
+                y: 415,
                 width: 60,
                 height: 25
             },
 
             {
                 x: 390,
-                y: 423,
+                y: 415,
                 width: 75,
                 height: 25
             },
 
             {
                 x: 550,
-                y: 423,
+                y: 415,
                 width: 60,
                 height: 25
             },
 
             {
                 x: 700,
-                y: 423,
+                y: 415,
                 width: 80,
                 height: 25
             }
@@ -347,8 +344,7 @@ canvas.addEventListener(
 
 function restartCurrentLevel() {
 
-    // IMPORTANT:
-    // Do NOT set level = 1 here.
+    // Keep the current level.
 
     hearts = 3;
 
@@ -371,10 +367,9 @@ function resetPlayer() {
 
     player.x = 100;
 
-    player.y =
-        platform.y -
-        player.height;
+    // Correct standing height.
 
+    player.y = 385;
 
     player.velocityY = 0;
 
@@ -775,7 +770,7 @@ function drawBackground() {
     ctx.globalAlpha = 1;
 
 
-    // Level number
+    // Large level number
 
     ctx.fillStyle =
         "rgba(255,79,174,0.08)";
@@ -814,6 +809,8 @@ function drawPlatform() {
         platform.height
     );
 
+
+    // Neon top edge
 
     ctx.fillStyle =
         "#ff4fae";
@@ -895,6 +892,8 @@ function drawFinish() {
         levelData[level].finishX;
 
 
+    // Glow
+
     ctx.fillStyle =
         "rgba(255,79,174,0.15)";
 
@@ -905,6 +904,8 @@ function drawFinish() {
         340
     );
 
+
+    // Gate
 
     ctx.strokeStyle =
         "#ff4fae";
@@ -919,6 +920,8 @@ function drawFinish() {
     );
 
 
+    // Top
+
     ctx.fillStyle =
         "#ff4fae";
 
@@ -929,6 +932,8 @@ function drawFinish() {
         8
     );
 
+
+    // Label
 
     ctx.fillStyle =
         "#ffffff";
@@ -956,6 +961,8 @@ function drawFinish() {
 // ========================================
 
 function drawPlayer() {
+
+    // Invincibility blinking
 
     if (
         invincible &&
@@ -1000,6 +1007,8 @@ function drawPlayer() {
     ctx.lineCap =
         "round";
 
+
+    // Walking movement
 
     let legMove = 0;
 
